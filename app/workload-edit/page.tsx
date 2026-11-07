@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
-import { updateStaffMtAction } from './actions';
+import { updateStaffMt } from './actions';
 
 export const revalidate = 0;
 
@@ -107,7 +107,7 @@ export default async function WorkloadEditPage({ searchParams }: PageProps) {
       </div>
 
       {/* ฟอร์มกรอกข้อมูลพร้อมการ Fixed หัวตาราง */}
-      <form action={updateStaffMtAction}>
+      <form action={updateStaffMt}>
         <input type="hidden" name="hospital_code" value={selectedHcode} />
         <input type="hidden" name="month" value={selectedMonth} />
         <input type="hidden" name="year" value={adYear} />
@@ -138,7 +138,6 @@ export default async function WorkloadEditPage({ searchParams }: PageProps) {
                 </tr>
               ) : (
                 rows.map((r: any) => {
-                  // รวมภาระงานย่อยทุกรายการ
                   const grandTotal =
                     Number(r.sample_collection || 0) +
                     Number(r.hematology || 0) +
