@@ -12,6 +12,12 @@ interface PageProps {
   }>;
 }
 
+const THAI_MONTHS: Record<number, string> = {
+  1: 'มกราคม', 2: 'กุมภาพันธ์', 3: 'มีนาคม', 4: 'เมษายน',
+  5: 'พฤษภาคม', 6: 'มิถุนายน', 7: 'กรกฎาคม', 8: 'สิงหาคม',
+  9: 'กันยายน', 10: 'ตุลาคม', 11: 'พฤศจิกายน', 12: 'ธันวาคม',
+};
+
 export default async function WorkloadEditPage({ searchParams }: PageProps) {
   const params = await searchParams;
 
@@ -84,9 +90,9 @@ export default async function WorkloadEditPage({ searchParams }: PageProps) {
             <div className="col-md-3">
               <label className="form-label fw-bold small mb-1">เลือกเดือน</label>
               <select name="month" defaultValue={selectedMonth} className="form-select form-select-sm">
-                {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
-                  <option key={m} value={m}>
-                    {m}
+                {Object.entries(THAI_MONTHS).map(([mNum, mName]) => (
+                  <option key={mNum} value={mNum}>
+                    {mName}
                   </option>
                 ))}
               </select>
