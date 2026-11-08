@@ -62,6 +62,19 @@ export default async function WorkloadEditPage({ searchParams }: PageProps) {
       <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" />
       <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
 
+      {/* Script เด้ง Popup แจ้งเตือนอัตโนมัติเมื่อกดบันทึกสำเร็จ */}
+      {isSuccess && (
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              setTimeout(function() {
+                alert('✅ บันทึกข้อมูลเจ้าหน้าที่ห้องแล็บเรียบร้อยแล้ว!');
+              }, 100);
+            `,
+          }}
+        />
+      )}
+
       {/* Header ด้านบนพร้อมปุ่มกลับหน้าหลัก */}
       <div className="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
         <h4 className="m-0 fw-bold text-primary fs-5">
@@ -75,13 +88,13 @@ export default async function WorkloadEditPage({ searchParams }: PageProps) {
         </Link>
       </div>
 
-      {/* ป้ายการ์ดแจ้งเตือนเมื่อบันทึกสำเร็จ */}
+      {/* แถบ Banner สีเขียวแสดงการแจ้งเตือน */}
       {isSuccess && (
         <div className="alert alert-success d-flex align-items-center justify-content-between py-2 px-3 mb-2 shadow-sm border-0 rounded-3">
           <div className="d-flex align-items-center">
             <i className="fa-solid fa-circle-check me-2 fs-5 text-success"></i>
             <div>
-              <strong className="me-1">บันทึกสำเร็จ!</strong> ข้อมูลเจ้าหน้าที่ห้องแล็บถูกอัปเดตลงระบบเรียบร้อยแล้ว
+              <strong className="me-1">บันทึกสำเร็จ!</strong> ข้อมูลถูกอัปเดตลงระบบเรียบร้อยแล้ว
             </div>
           </div>
           <Link
@@ -134,7 +147,7 @@ export default async function WorkloadEditPage({ searchParams }: PageProps) {
         </div>
       </div>
 
-      {/* ฟอร์มกรอกข้อมูลพร้อม Sticky Header และปรับสเกล FHD */}
+      {/* ฟอร์มกรอกข้อมูล */}
       <form action={updateStaffMt}>
         <input type="hidden" name="hospital_code" value={selectedHcode} />
         <input type="hidden" name="month" value={selectedMonth} />
