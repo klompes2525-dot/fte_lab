@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
+import { LEVEL_COLUMN_MAP } from '@/lib/fte-utils';
 
 export const revalidate = 0;
 
@@ -9,18 +10,6 @@ interface PageProps {
   }>;
 }
 
-const LEVEL_COLUMN_MAP: Record<string, string> = {
-  A: 'hospital_a',
-  a: 'hospital_a_small',
-  S: 'hospital_s',
-  s: 'hospital_s_small',
-  M1: 'hospital_m1',
-  M2: 'hospital_m2',
-  F1: 'hospital_f1',
-  F2: 'hospital_f2',
-  F3: 'hospital_f3',
-};
-
 const THAI_MONTHS_SHORT = [
   '', 'ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.',
   'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'
@@ -28,7 +17,10 @@ const THAI_MONTHS_SHORT = [
 
 export default async function ReportProductivityPage({ searchParams }: PageProps) {
   const params = await searchParams;
-  const currentYearAD = new Date().getFullYear();
+  const today = new Date();
+  const currentYearAD = today.getFullYear();
+  const currentMonth = today.getMonth() + 1; // เดือนปัจจุบัน (1-12)
+
   const inputYear = params.year ? parseInt(params.year) : currentYearAD + 543;
 
   const adYear = inputYear > 2400 ? inputYear - 543 : inputYear;
@@ -98,13 +90,14 @@ export default async function ReportProductivityPage({ searchParams }: PageProps
     .lte('start_date', endDateStr)
     .range(0, 49999);
 
-  // สรุปข้อมูลรายเดือนรายโรงพยาบาล
+  // สรุปข้อมูลรายเดือนรายโรงพยาบาล และนับจำนวนวันที่บันทึกจริง
   interface MonthlyAgg {
     staffMtList: number[];
     activities: Record<number, number>;
   }
 
   const workloadMatrix: Record<string, Record<number, MonthlyAgg>> = {};
+  const recordedDaysMatrix: Record<string, Record<number, Set<string>>> = {};
 
   (rawWorkload || []).forEach((row: any) => {
     const hc = String(row.hospital_code);
@@ -120,6 +113,10 @@ export default async function ReportProductivityPage({ searchParams }: PageProps
         },
       };
     }
+
+    if (!recordedDaysMatrix[hc]) recordedDaysMatrix[hc] = {};
+    if (!recordedDaysMatrix[hc][workMonth]) recordedDaysMatrix[hc][workMonth] = new Set();
+    if (row.start_date) recordedDaysMatrix[hc][workMonth].add(row.start_date);
 
     const mObj = workloadMatrix[hc][workMonth];
     if (row.staff_mt !== null && row.staff_mt !== undefined) {
@@ -140,10 +137,11 @@ export default async function ReportProductivityPage({ searchParams }: PageProps
     mObj.activities[12] += Number(row.blood_bank_nat_cert || 0);
   });
 
-  // 5. คำนวณ Productivity (%) และ Staff MT
+  // 5. คำนวณ Productivity (%) และตรวจสอบเดือนที่สมบูรณ์เต็มเดือน
   const productivityMatrix: Record<string, Record<number, number>> = {};
   const actualStaffMatrix: Record<string, Record<number, number>> = {};
   const hasDataMatrix: Record<string, Record<number, boolean>> = {};
+  const isCompleteMonthMatrix: Record<string, Record<number, boolean>> = {};
 
   hospitals.forEach((h) => {
     const hc = String(h.hcode);
@@ -154,6 +152,7 @@ export default async function ReportProductivityPage({ searchParams }: PageProps
     if (!productivityMatrix[hc]) productivityMatrix[hc] = {};
     if (!actualStaffMatrix[hc]) actualStaffMatrix[hc] = {};
     if (!hasDataMatrix[hc]) hasDataMatrix[hc] = {};
+    if (!isCompleteMonthMatrix[hc]) isCompleteMonthMatrix[hc] = {};
 
     for (let m = 1; m <= 12; m++) {
       const vData = workloadMatrix[hc]?.[m];
@@ -161,6 +160,7 @@ export default async function ReportProductivityPage({ searchParams }: PageProps
         productivityMatrix[hc][m] = 0;
         actualStaffMatrix[hc][m] = 0;
         hasDataMatrix[hc][m] = false;
+        isCompleteMonthMatrix[hc][m] = false;
         continue;
       }
 
@@ -195,6 +195,15 @@ export default async function ReportProductivityPage({ searchParams }: PageProps
       const prod = (fteWithAllowance / actualStaffM) * 100.0;
 
       productivityMatrix[hc][m] = prod;
+
+      // ตรวจสอบความสมบูรณ์ของเดือน (ต้องเป็นเดือนที่ผ่านไปแล้ว + มีวันที่ลงข้อมูลครบตามจำนวนวันในเดือนนั้น)
+      const totalDaysInMonth = new Date(adYear, m, 0).getDate();
+      const recordedDaysCount = recordedDaysMatrix[hc]?.[m]?.size || 0;
+
+      const isPastMonth = adYear < currentYearAD || (adYear === currentYearAD && m < currentMonth);
+      const isFullMonthData = recordedDaysCount >= totalDaysInMonth;
+
+      isCompleteMonthMatrix[hc][m] = isPastMonth && isFullMonthData;
     }
   });
 
@@ -269,7 +278,7 @@ export default async function ReportProductivityPage({ searchParams }: PageProps
         <div className="card-body p-0">
           <div
             style={{
-              maxHeight: 'calc(100vh - 210px)',
+              maxHeight: 'calc(100vh - 230px)',
               overflow: 'auto',
               border: '1px solid #cbd5e1',
               borderRadius: '6px',
@@ -395,7 +404,7 @@ export default async function ReportProductivityPage({ searchParams }: PageProps
               <tbody>
                 {hospitals.map((h, idx) => {
                   const hc = String(h.hcode);
-                  const hActiveProds: number[] = [];
+                  const completeProds: number[] = [];
 
                   return (
                     <tr key={hc} style={{ borderBottom: '1px solid #e2e8f0' }}>
@@ -463,9 +472,12 @@ export default async function ReportProductivityPage({ searchParams }: PageProps
                         const prod = productivityMatrix[hc]?.[m] || 0;
                         const staffM = actualStaffMatrix[hc]?.[m] || 0;
                         const hasData = hasDataMatrix[hc]?.[m] || false;
+                        const isComplete = isCompleteMonthMatrix[hc]?.[m] || false;
 
                         if (hasData) {
-                          hActiveProds.push(prod);
+                          if (isComplete) {
+                            completeProds.push(prod);
+                          }
                           monthProdSums[m] += prod;
                           monthHospCounts[m]++;
                         }
@@ -486,11 +498,16 @@ export default async function ReportProductivityPage({ searchParams }: PageProps
                               borderBottom: '1px solid #e2e8f0',
                               padding: '4px 2px',
                               lineHeight: '1.2',
+                              backgroundColor: (hasData && !isComplete) ? '#fffbeb' : 'transparent',
                             }}
+                            title={hasData && !isComplete ? 'เดือนนี้ยังไม่เต็มเดือน ไม่นำไปคิดค่าเฉลี่ย' : ''}
                           >
                             {hasData ? (
                               <>
-                                <div>{prod.toFixed(1)}%</div>
+                                <div>
+                                  {prod.toFixed(1)}%
+                                  {!isComplete && <span className="text-warning ms-1" style={{ fontSize: '0.75rem' }}>*</span>}
+                                </div>
                                 <div className="text-muted" style={{ fontSize: '9px', fontWeight: 'normal' }}>
                                   ({staffM.toFixed(1)} คน)
                                 </div>
@@ -502,12 +519,13 @@ export default async function ReportProductivityPage({ searchParams }: PageProps
                         );
                       })}
 
+                      {/* Productivity เฉลี่ย คิดเฉพาะเดือนที่เต็มเดือนจริงเท่านั้น */}
                       {(() => {
-                        const hAvgProd = hActiveProds.length > 0
-                          ? hActiveProds.reduce((a, b) => a + b, 0) / hActiveProds.length
+                        const hAvgProd = completeProds.length > 0
+                          ? completeProds.reduce((a, b) => a + b, 0) / completeProds.length
                           : 0;
 
-                        if (hActiveProds.length > 0) {
+                        if (completeProds.length > 0) {
                           allHospAvgProds.push(hAvgProd);
                         }
 
@@ -526,7 +544,7 @@ export default async function ReportProductivityPage({ searchParams }: PageProps
                               backgroundColor: '#f8fafc',
                             }}
                           >
-                            {hActiveProds.length > 0 ? (
+                            {completeProds.length > 0 ? (
                               <span className={`badge ${avgBadge} px-2 py-1`} style={{ fontSize: '11px' }}>
                                 {hAvgProd.toFixed(1)}%
                               </span>
@@ -612,6 +630,10 @@ export default async function ReportProductivityPage({ searchParams }: PageProps
               </tfoot>
             </table>
           </div>
+        </div>
+        <div className="card-footer bg-white text-muted py-1 px-3" style={{ fontSize: '11px' }}>
+          <i className="fa-solid fa-circle-info text-warning me-1"></i>
+          <span>* หมายเหตุ: ตัวเลขที่มีเครื่องหมาย <strong>* (สีส้ม)</strong> เป็นข้อมูลของเดือนที่ยังไม่สิ้นสุดเต็มเดือน หรือมีจำนวนวันที่ลงข้อมูลไม่ครบตามจำนวนวันในเดือนนั้น ซึ่งจะไม่นำมาคำนวณในช่อง <strong>Productivity เฉลี่ย</strong></span>
         </div>
       </div>
     </div>
