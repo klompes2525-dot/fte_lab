@@ -37,7 +37,7 @@ export default async function Page({ searchParams }: PageProps) {
     selectedHcode = String(hospitals[0].hcode);
   }
 
-  // แปลง String ก่อนเปรียบเทียบเสมอ ป้องกันปัญหา number vs string (เช่น 11182 === "11182" เป็น false)
+  // แปลง String ก่อนเปรียบเทียบเสมอ ป้องกันปัญหา Type mismatch
   const currentHosp = hospitals?.find(h => String(h.hcode) === String(selectedHcode)) || hospitals?.[0];
   const hLevel = currentHosp?.hospital_level || 'F2';
   
@@ -133,90 +133,98 @@ export default async function Page({ searchParams }: PageProps) {
   const buddhistYear = selectedYear + 543;
 
   return (
-    <div className="container-fluid px-4 py-4">
+    <div className="container-fluid px-3 py-2" style={{ fontSize: '0.8rem' }}>
+      <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" />
+      <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+
       {/* Navigation Header */}
-      <div className="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
-        <h3 className="m-0 fw-bold text-dark">
-          <i className="fa-solid fa-microscope text-primary me-2"></i>
+      <div className="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
+        <h4 className="m-0 fw-bold text-dark fs-5">
+          <i className="fa-solid fa-vial text-primary me-2"></i>
           ระบบรายงานภาระงานนักเทคนิคการแพทย์
-        </h3>
-        <div className="d-flex align-items-center gap-2 flex-wrap">
-          <Link href={`/report-productivity?year=${buddhistYear}`} className="btn btn-outline-warning text-dark fw-bold">
+        </h4>
+        <div className="d-flex align-items-center gap-1 flex-wrap">
+          <Link href={`/report-productivity?year=${buddhistYear}`} className="btn btn-outline-warning btn-sm text-dark fw-bold py-1 px-2">
             Productivity (%)
           </Link>
-          <Link href={`/report-fte-monthly?year=${buddhistYear}`} className="btn text-white fw-bold" style={{ backgroundColor: '#8b5cf6' }}>
+          <Link href={`/report-fte-monthly?year=${buddhistYear}`} className="btn btn-sm text-white fw-bold py-1 px-2" style={{ backgroundColor: '#8b5cf6' }}>
             สรุป FTE รายเดือน
           </Link>
-          <Link href={`/report-summary?year=${buddhistYear}&month=${selectedMonth}`} className="btn btn-outline-primary fw-bold">
+          <Link href={`/report-summary?year=${buddhistYear}&month=${selectedMonth}`} className="btn btn-outline-primary btn-sm fw-bold py-1 px-2">
             สรุปปริมาณงานรายเดือน
           </Link>
-          <Link href={`/workload-edit?hospital_code=${selectedHcode}&month=${selectedMonth}&year=${selectedYear}`} className="btn btn-outline-dark fw-bold">
+          <Link href={`/workload-edit?hospital_code=${selectedHcode}&month=${selectedMonth}&year=${selectedYear}`} className="btn btn-outline-dark btn-sm fw-bold py-1 px-2">
             จัดการ staff_mt
           </Link>
-          <span className="badge bg-dark fs-6 py-2 px-3">
+          <span className="badge bg-dark fs-6 py-1 px-2 rounded-2 ms-1">
             ระดับ รพ.: {hLevel}
           </span>
         </div>
       </div>
 
-      {/* Filter Form */}
-      <div className="card mb-4 shadow-sm border-0">
-        <div className="card-body py-3">
-          <form method="GET" className="row g-3 align-items-end">
-            <div className="col-md-5">
-              <label className="form-label fw-bold small">เลือกสถานบริการ (HCODE)</label>
-              <select name="hcode" defaultValue={String(selectedHcode)} className="form-select">
-                {hospitals?.map(h => (
-                  <option key={h.hcode} value={String(h.hcode)}>
-                    [{h.hcode}] {h.hname} (ระดับ {h.hospital_level})
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="col-md-3">
-              <label className="form-label fw-bold small">ปี พ.ศ.</label>
-              <select name="year" defaultValue={buddhistYear} className="form-select">
-                {[currentYearAD - 1, currentYearAD, currentYearAD + 1].map(y => (
-                  <option key={y} value={y + 543}>{y + 543}</option>
-                ))}
-              </select>
-            </div>
-            <div className="col-md-3">
-              <label className="form-label fw-bold small">เดือน</label>
-              <select name="month" defaultValue={selectedMonth} className="form-select">
-                {Object.entries(THAI_MONTHS).map(([mNum, mName]) => (
-                  <option key={mNum} value={mNum}>{mName}</option>
-                ))}
-              </select>
-            </div>
-            <div className="col-md-1">
-              <button type="submit" className="btn btn-success fw-bold w-100">กรอง</button>
-            </div>
-          </form>
-        </div>
+      {/* Filter Form (Compact) */}
+      <div className="card mb-2 p-2 shadow-sm border-0">
+        <form method="GET" className="row g-2 align-items-end">
+          <div className="col-md-5">
+            <label className="form-label fw-bold small mb-1">เลือกสถานบริการ (HCODE)</label>
+            <select name="hcode" defaultValue={String(selectedHcode)} className="form-select form-select-sm">
+              {hospitals?.map(h => (
+                <option key={h.hcode} value={String(h.hcode)}>
+                  [{h.hcode}] {h.hname} (ระดับ {h.hospital_level})
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="col-md-3">
+            <label className="form-label fw-bold small mb-1">ปี พ.ศ.</label>
+            <select name="year" defaultValue={buddhistYear} className="form-select form-select-sm">
+              {[currentYearAD - 1, currentYearAD, currentYearAD + 1].map(y => (
+                <option key={y} value={y + 543}>{y + 543}</option>
+              ))}
+            </select>
+          </div>
+          <div className="col-md-3">
+            <label className="form-label fw-bold small mb-1">เดือน</label>
+            <select name="month" defaultValue={selectedMonth} className="form-select form-select-sm">
+              {Object.entries(THAI_MONTHS).map(([mNum, mName]) => (
+                <option key={mNum} value={mNum}>{mName}</option>
+              ))}
+            </select>
+          </div>
+          <div className="col-md-1">
+            <button type="submit" className="btn btn-success btn-sm fw-bold w-100 py-1">กรอง</button>
+          </div>
+        </form>
       </div>
 
-      {/* Workload Table */}
-      <div className="card mb-3 border-0 shadow-sm">
-        <div className="card-header bg-white py-3 border-0 d-flex justify-content-between align-items-center flex-wrap">
-          <h5 className="m-0 text-primary fw-bold fs-6">
+      {/* Workload Table (Compact FHD Scale) */}
+      <div className="card mb-2 border-0 shadow-sm">
+        <div className="card-header bg-white py-1 px-3 border-0 d-flex justify-content-between align-items-center flex-wrap">
+          <h6 className="m-0 text-primary fw-bold" style={{ fontSize: '0.85rem' }}>
             ตารางคำนวณภาระงานประจำเดือน {THAI_MONTHS[selectedMonth]} {buddhistYear} - {currentHosp?.hname}
-          </h5>
-          <span className="text-muted small">
+          </h6>
+          <span className="text-muted" style={{ fontSize: '11px' }}>
             (ดึงเวลามาตรฐานจากคอลัมน์ <code>{stdTimeCol}</code>)
           </span>
         </div>
         <div className="card-body p-0">
-          <div className="table-responsive">
-            <table className="table table-hover align-middle mb-0">
-              <thead className="table-dark text-center">
+          <div
+            style={{
+              maxHeight: 'calc(100vh - 360px)',
+              overflowY: 'auto',
+              borderTop: '1px solid #e2e8f0',
+              borderBottom: '1px solid #e2e8f0',
+            }}
+          >
+            <table className="table table-hover align-middle mb-0" style={{ fontSize: '0.8rem' }}>
+              <thead className="table-dark text-center" style={{ position: 'sticky', top: 0, zIndex: 10 }}>
                 <tr>
-                  <th style={{ width: '70px' }}>ลำดับ</th>
-                  <th className="text-start">กิจกรรมนักเทคนิคการแพทย์</th>
-                  <th style={{ width: '90px' }}>หน่วยนับ</th>
-                  <th style={{ width: '150px' }}>เวลามาตรฐาน (นาที)</th>
-                  <th style={{ width: '150px' }}>ปริมาณงานสะสม</th>
-                  <th style={{ width: '180px' }}>รวมเวลาภาระงาน (นาที)</th>
+                  <th style={{ width: '50px', padding: '6px 4px' }}>ลำดับ</th>
+                  <th className="text-start" style={{ padding: '6px 8px' }}>กิจกรรมนักเทคนิคการแพทย์</th>
+                  <th style={{ width: '80px', padding: '6px 4px' }}>หน่วยนับ</th>
+                  <th style={{ width: '130px', padding: '6px 4px' }}>เวลามาตรฐาน (นาที)</th>
+                  <th style={{ width: '130px', padding: '6px 4px' }}>ปริมาณงานสะสม</th>
+                  <th style={{ width: '150px', padding: '6px 4px' }}>รวมเวลาภาระงาน (นาที)</th>
                 </tr>
               </thead>
               <tbody>
@@ -226,16 +234,20 @@ export default async function Page({ searchParams }: PageProps) {
 
                   return (
                     <tr key={row.id} className={isHeaderSummary ? 'table-secondary fw-bold' : ''}>
-                      <td className="text-center">{row.item_no || '-'}</td>
-                      <td className={`text-start ${isSubItem ? 'ps-4' : ''}`}>{row.activity_name}</td>
-                      <td className="text-center"><span className="badge bg-secondary">{row.unit}</span></td>
-                      <td className="text-center fw-bold">{row.std_time.toFixed(1)}</td>
-                      <td className="text-center fw-bold text-dark">{row.volume.toLocaleString()}</td>
-                      <td className={`text-center fw-bold ${row.is_counted ? 'text-primary' : 'text-muted'}`}>
+                      <td className="text-center" style={{ padding: '4px 4px' }}>{row.item_no || '-'}</td>
+                      <td className={`text-start ${isSubItem ? 'ps-4' : ''}`} style={{ padding: '4px 8px' }}>
+                        {row.activity_name}
+                      </td>
+                      <td className="text-center" style={{ padding: '4px 4px' }}>
+                        <span className="badge bg-secondary" style={{ fontSize: '10px' }}>{row.unit}</span>
+                      </td>
+                      <td className="text-center fw-bold" style={{ padding: '4px 4px' }}>{row.std_time.toFixed(1)}</td>
+                      <td className="text-center fw-bold text-dark" style={{ padding: '4px 4px' }}>{row.volume.toLocaleString()}</td>
+                      <td className={`text-center fw-bold ${row.is_counted ? 'text-primary' : 'text-muted'}`} style={{ padding: '4px 4px' }}>
                         <span className={!row.is_counted ? 'text-decoration-line-through opacity-50' : ''}>
                           {row.total_minutes.toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}
                         </span>
-                        {row.note && <div className="small text-danger fw-normal mt-1">{row.note}</div>}
+                        {row.note && <div className="text-danger fw-normal" style={{ fontSize: '10px' }}>{row.note}</div>}
                       </td>
                     </tr>
                   );
@@ -246,32 +258,34 @@ export default async function Page({ searchParams }: PageProps) {
         </div>
       </div>
 
-      {/* Summary Cards */}
-      <div className="row g-3">
+      {/* Summary Cards (Compact) */}
+      <div className="row g-2">
         <div className="col-md-3">
-          <div className="card p-3 border-0 shadow-sm border-start border-4 border-primary">
+          <div className="card p-2 border-0 shadow-sm border-start border-4 border-primary">
             <div className="text-muted small fw-bold">รวมเวลาภาระงานทั้งหมด</div>
-            <div className="fs-3 fw-bold text-primary mt-1">{grandTotalMinutes.toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} นาที</div>
+            <div className="fs-4 fw-bold text-primary mt-1">
+              {grandTotalMinutes.toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} นาที
+            </div>
           </div>
         </div>
         <div className="col-md-3">
-          <div className="card p-3 border-0 shadow-sm border-start border-4 border-success">
+          <div className="card p-2 border-0 shadow-sm border-start border-4 border-success">
             <div className="text-muted small fw-bold">รวมเวลาคิดเป็นชั่วโมง</div>
-            <div className="fs-3 fw-bold text-success mt-1">{grandTotalHours.toFixed(2)} ชั่วโมง</div>
+            <div className="fs-4 fw-bold text-success mt-1">{grandTotalHours.toFixed(2)} ชั่วโมง</div>
           </div>
         </div>
         <div className="col-md-3">
-          <div className="card p-3 border-0 shadow-sm border-start border-4 border-warning">
+          <div className="card p-2 border-0 shadow-sm border-start border-4 border-warning">
             <div className="text-muted small fw-bold">เวลามาตรฐานประจำเดือน</div>
-            <div className="fs-3 fw-bold text-warning mt-1">{fteStandardHours.toFixed(1)} ชม./คน</div>
-            <div className="small text-muted mt-1">{workingDays} วันทำงาน (หักวันหยุด {holidayCount} วัน) × 7 ชม.</div>
+            <div className="fs-4 fw-bold text-warning mt-1">{fteStandardHours.toFixed(1)} ชม./คน</div>
+            <div className="text-muted" style={{ fontSize: '11px' }}>{workingDays} วันทำงาน (หักวันหยุด {holidayCount} วัน) × 7 ชม.</div>
           </div>
         </div>
         <div className="col-md-3">
-          <div className="card p-3 border-0 shadow-sm border-start border-4" style={{ borderColor: '#8b5cf6' }}>
+          <div className="card p-2 border-0 shadow-sm border-start border-4" style={{ borderColor: '#8b5cf6' }}>
             <div className="text-muted small fw-bold">กรอบอัตรากำลังที่ต้องการ (FTE)</div>
-            <div className="fs-3 fw-bold mt-1" style={{ color: '#8b5cf6' }}>{fteWithAllowance.toFixed(2)} คน</div>
-            <div className="small text-muted mt-1">(FTE หลัก: {fteMain.toFixed(2)} + Allowance 5%)</div>
+            <div className="fs-4 fw-bold mt-1" style={{ color: '#8b5cf6' }}>{fteWithAllowance.toFixed(2)} คน</div>
+            <div className="text-muted" style={{ fontSize: '11px' }}>(FTE หลัก: {fteMain.toFixed(2)} + Allowance 5%)</div>
           </div>
         </div>
       </div>
