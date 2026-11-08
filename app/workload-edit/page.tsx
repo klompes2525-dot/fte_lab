@@ -9,6 +9,7 @@ interface PageProps {
     hospital_code?: string;
     month?: string;
     year?: string;
+    status?: string;
   }>;
 }
 
@@ -27,7 +28,8 @@ export default async function WorkloadEditPage({ searchParams }: PageProps) {
   const selectedHcode = params.hospital_code || '11182';
   const selectedMonth = params.month ? parseInt(params.month) : currentMonth;
   const rawYear = params.year ? parseInt(params.year) : currentYearAD;
-  
+  const isSuccess = params.status === 'success';
+
   const adYear = rawYear > 2400 ? rawYear - 543 : rawYear;
   const buddhistYear = rawYear > 2400 ? rawYear : rawYear + 543;
 
@@ -61,7 +63,7 @@ export default async function WorkloadEditPage({ searchParams }: PageProps) {
       <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
 
       {/* Header ด้านบนพร้อมปุ่มกลับหน้าหลัก */}
-      <div className="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+      <div className="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
         <h4 className="m-0 fw-bold text-primary fs-5">
           จัดการข้อมูลเจ้าหน้าที่ห้องแล็บ (ยกเว้นผู้ช่วย)
         </h4>
@@ -72,6 +74,23 @@ export default async function WorkloadEditPage({ searchParams }: PageProps) {
           <i className="fa-solid fa-arrow-left me-1"></i> กลับหน้าหลัก
         </Link>
       </div>
+
+      {/* ป้ายการ์ดแจ้งเตือนเมื่อบันทึกสำเร็จ */}
+      {isSuccess && (
+        <div className="alert alert-success d-flex align-items-center justify-content-between py-2 px-3 mb-2 shadow-sm border-0 rounded-3">
+          <div className="d-flex align-items-center">
+            <i className="fa-solid fa-circle-check me-2 fs-5 text-success"></i>
+            <div>
+              <strong className="me-1">บันทึกสำเร็จ!</strong> ข้อมูลเจ้าหน้าที่ห้องแล็บถูกอัปเดตลงระบบเรียบร้อยแล้ว
+            </div>
+          </div>
+          <Link
+            href={`/workload-edit?hospital_code=${selectedHcode}&month=${selectedMonth}&year=${adYear}`}
+            className="btn-close"
+            aria-label="Close"
+          ></Link>
+        </div>
+      )}
 
       {/* ตัวกรอง ค้นหาข้อมูล (Compact) */}
       <div className="card mb-3 shadow-sm border-0">
@@ -123,7 +142,7 @@ export default async function WorkloadEditPage({ searchParams }: PageProps) {
 
         <div
           className="table-responsive shadow-sm border rounded mb-2"
-          style={{ maxHeight: 'calc(100vh - 270px)', overflowY: 'auto' }}
+          style={{ maxHeight: isSuccess ? 'calc(100vh - 320px)' : 'calc(100vh - 270px)', overflowY: 'auto' }}
         >
           <table className="table table-hover align-middle mb-0" style={{ fontSize: '0.8rem' }}>
             <thead
