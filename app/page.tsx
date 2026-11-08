@@ -34,15 +34,16 @@ export default async function Page({ searchParams }: PageProps) {
     .order('hcode', { ascending: true });
 
   if (!selectedHcode && hospitals && hospitals.length > 0) {
-    selectedHcode = hospitals[0].hcode;
+    selectedHcode = String(hospitals[0].hcode);
   }
 
-  const currentHosp = hospitals?.find(h => h.hcode === selectedHcode) || hospitals?.[0];
+  // แปลง String ก่อนเปรียบเทียบเสมอ ป้องกันปัญหา number vs string (เช่น 11182 === "11182" เป็น false)
+  const currentHosp = hospitals?.find(h => String(h.hcode) === String(selectedHcode)) || hospitals?.[0];
   const hLevel = currentHosp?.hospital_level || 'F2';
   
-  // ค้นหาคอลัมน์เวลามาตรฐานแบบ Case-insensitive
+  // ค้นหาคอลัมน์เวลามาตรฐานจาก hospital_level
   const levelKey = hLevel.toLowerCase().trim();
-  const stdTimeCol = LEVEL_COLUMN_MAP[hLevel] || LEVEL_COLUMN_MAP[levelKey] || 'hospital_f2';
+  const stdTimeCol = LEVEL_COLUMN_MAP[hLevel] || LEVEL_COLUMN_MAP[levelKey] || `hospital_${levelKey}`;
 
   // 3. ดึงข้อมูลกิจกรรมเกณฑ์เวลามาตรฐาน
   const { data: activities } = await supabase
@@ -164,9 +165,9 @@ export default async function Page({ searchParams }: PageProps) {
           <form method="GET" className="row g-3 align-items-end">
             <div className="col-md-5">
               <label className="form-label fw-bold small">เลือกสถานบริการ (HCODE)</label>
-              <select name="hcode" defaultValue={selectedHcode} className="form-select">
+              <select name="hcode" defaultValue={String(selectedHcode)} className="form-select">
                 {hospitals?.map(h => (
-                  <option key={h.hcode} value={h.hcode}>
+                  <option key={h.hcode} value={String(h.hcode)}>
                     [{h.hcode}] {h.hname} (ระดับ {h.hospital_level})
                   </option>
                 ))}
