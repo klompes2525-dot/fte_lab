@@ -154,7 +154,7 @@ export default async function Page({ searchParams }: PageProps) {
             สรุปปริมาณงานรายเดือน
           </Link>
           <Link href={`/workload-edit?hospital_code=${selectedHcode}&month=${selectedMonth}&year=${selectedYear}`} className="btn btn-outline-dark btn-sm fw-bold py-1 px-2">
-            จัดการ staff_mt
+            ผู้ปฏิบัติงานประจำวัน
           </Link>
           <span className="badge bg-dark fs-6 py-1 px-2 rounded-2 ms-1">
             ระดับ รพ.: {hLevel}
