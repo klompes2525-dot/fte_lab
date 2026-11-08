@@ -265,11 +265,12 @@ export default async function ReportProductivityPage({ searchParams }: PageProps
           <h6 className="m-0 text-dark fw-bold">
             ตารางแสดงผลิตภาพ Productivity (%) ประจำปี พ.ศ. {buddhistYear}
           </h6>
-          <div className="d-flex gap-2 align-items-center flex-wrap" style={{ fontSize: '11px' }}>
-            <span className="badge bg-danger">&gt; 100% (งานเกินกำลัง)</span>
-            <span className="badge bg-success">85% - 100% (พอดี)</span>
-            <span className="badge bg-info text-dark">&lt; 85% (กำลังคนเหลือ)</span>
-            <span className="badge bg-light text-dark border">
+          {/* ขยายขนาดตัวอักษรของคำอธิบายสถานะและสูตรคำนวณเป็น 13px */}
+          <div className="d-flex gap-2 align-items-center flex-wrap" style={{ fontSize: '13px' }}>
+            <span className="badge bg-danger px-2 py-1.5" style={{ fontSize: '12.5px' }}>&gt; 100% (งานเกินกำลัง)</span>
+            <span className="badge bg-success px-2 py-1.5" style={{ fontSize: '12.5px' }}>85% - 100% (พอดี)</span>
+            <span className="badge bg-info text-dark px-2 py-1.5" style={{ fontSize: '12.5px' }}>&lt; 85% (กำลังคนเหลือ)</span>
+            <span className="badge bg-light text-dark border px-2 py-1.5" style={{ fontSize: '12.5px' }}>
               สูตร: Productivity (%) = [(FTEภาระงาน + Allowance 5%) / AVG(staff_mt)] × 100
             </span>
           </div>
@@ -631,7 +632,7 @@ export default async function ReportProductivityPage({ searchParams }: PageProps
             </table>
           </div>
         </div>
-        <div className="card-footer bg-white text-muted py-1 px-3" style={{ fontSize: '11px' }}>
+        <div className="card-footer bg-white text-muted py-1.5 px-3" style={{ fontSize: '12px' }}>
           <i className="fa-solid fa-circle-info text-warning me-1"></i>
           <span>* หมายเหตุ: ตัวเลขที่มีเครื่องหมาย <strong>* (สีส้ม)</strong> เป็นข้อมูลของเดือนที่ยังไม่สิ้นสุดเต็มเดือน หรือมีจำนวนวันที่ลงข้อมูลไม่ครบตามจำนวนวันในเดือนนั้น ซึ่งจะไม่นำมาคำนวณในช่อง <strong>Productivity เฉลี่ย</strong></span>
         </div>
