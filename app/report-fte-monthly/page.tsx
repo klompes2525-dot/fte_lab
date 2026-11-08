@@ -119,57 +119,57 @@ export default async function ReportFteMonthlyPage({ searchParams }: PageProps) 
   });
 
   return (
-    <div className="container-fluid px-4 py-4" style={{ fontSize: '0.95rem' }}>
+    <div className="container-fluid px-3 py-3" style={{ fontSize: '0.8rem' }}>
       <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" />
       <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
 
       {/* Header Navigation */}
-      <div className="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-3">
-        <h3 className="m-0 fw-bold text-dark fs-4">
+      <div className="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
+        <h4 className="m-0 fw-bold text-dark fs-5">
           <i className="fa-solid fa-users-gear text-primary me-2"></i>
           รายงานสรุปกรอบอัตรากำลังที่ต้องการ (FTE) รายเดือน
-        </h3>
+        </h4>
         <div className="d-flex gap-2">
-          <Link href={`/?year=${buddhistYear}`} className="btn btn-outline-secondary fw-bold px-3 py-2" style={{ fontSize: '0.9rem' }}>
+          <Link href={`/?year=${buddhistYear}`} className="btn btn-outline-secondary btn-sm fw-bold">
             <i className="fa-solid fa-arrow-left me-1"></i> หน้าหลัก (คำนวณ FTE)
           </Link>
-          <Link href={`/report-productivity?year=${buddhistYear}`} className="btn btn-outline-warning text-dark fw-bold px-3 py-2" style={{ fontSize: '0.9rem' }}>
+          <Link href={`/report-productivity?year=${buddhistYear}`} className="btn btn-outline-warning btn-sm text-dark fw-bold">
             Productivity (%)
           </Link>
-          <Link href={`/report-summary?year=${buddhistYear}`} className="btn btn-outline-primary fw-bold px-3 py-2" style={{ fontSize: '0.9rem' }}>
+          <Link href={`/report-summary?year=${buddhistYear}`} className="btn btn-outline-primary btn-sm fw-bold">
             สรุปปริมาณงานรายเดือน
           </Link>
         </div>
       </div>
 
-      {/* ตัวกรอง ปี พ.ศ. */}
-      <div className="card mb-3 p-3 shadow-sm border-0">
-        <form method="GET" className="row g-3 align-items-end">
+      {/* ตัวกรอง ปี พ.ศ. (แบบกะทัดรัด) */}
+      <div className="card mb-3 p-2 shadow-sm border-0">
+        <form method="GET" className="row g-2 align-items-end">
           <div className="col-auto">
-            <label className="form-label fw-bold mb-1" style={{ fontSize: '0.95rem' }}>เลือกปี พ.ศ.</label>
-            <select name="year" defaultValue={buddhistYear} className="form-select form-select-md fw-bold" style={{ width: '160px', height: '42px', fontSize: '0.95rem' }}>
+            <label className="form-label fw-bold small mb-1">เลือกปี พ.ศ.</label>
+            <select name="year" defaultValue={buddhistYear} className="form-select form-select-sm" style={{ width: '140px' }}>
               {[buddhistYear - 1, buddhistYear, buddhistYear + 1].map(y => (
                 <option key={y} value={y}>{y}</option>
               ))}
             </select>
           </div>
           <div className="col-auto">
-            <button type="submit" className="btn text-white fw-bold px-4" style={{ backgroundColor: '#8b5cf6', height: '42px', fontSize: '0.95rem' }}>
-              <i className="fa-solid fa-magnifying-glass me-2"></i>แสดงรายงาน
+            <button type="submit" className="btn btn-sm text-white fw-bold px-3" style={{ backgroundColor: '#8b5cf6' }}>
+              <i className="fa-solid fa-magnifying-glass me-1"></i>แสดงรายงาน
             </button>
           </div>
         </form>
       </div>
 
-      {/* ตารางแสดง FTE พร้อม Fixed Left Columns + Large Dimensions */}
+      {/* ตารางแสดง FTE พร้อม Fixed Left Columns + Compact Dimensions */}
       <div className="card border-0 shadow-sm">
         <div className="card-body p-0">
           <div
             style={{
-              maxHeight: 'calc(100vh - 210px)',
+              maxHeight: 'calc(100vh - 230px)',
               overflow: 'auto',
               border: '1px solid #cbd5e1',
-              borderRadius: '8px',
+              borderRadius: '6px',
               backgroundColor: '#ffffff',
             }}
           >
@@ -178,8 +178,8 @@ export default async function ReportFteMonthlyPage({ searchParams }: PageProps) 
                 borderCollapse: 'separate',
                 borderSpacing: 0,
                 width: '100%',
-                minWidth: '1350px',
-                fontSize: '0.95rem',
+                minWidth: '1150px',
+                fontSize: '0.8rem',
               }}
             >
               <thead>
@@ -193,11 +193,11 @@ export default async function ReportFteMonthlyPage({ searchParams }: PageProps) 
                       zIndex: 30,
                       backgroundColor: '#0f172a',
                       color: '#ffffff',
-                      width: '55px',
-                      minWidth: '55px',
+                      width: '40px',
+                      minWidth: '40px',
                       borderBottom: '1px solid #334155',
                       borderRight: '1px solid #334155',
-                      padding: '10px 4px',
+                      padding: '6px 2px',
                     }}
                   >
                     ลำดับ
@@ -206,15 +206,15 @@ export default async function ReportFteMonthlyPage({ searchParams }: PageProps) 
                     style={{
                       position: 'sticky',
                       top: 0,
-                      left: 55,
+                      left: 40,
                       zIndex: 30,
                       backgroundColor: '#0f172a',
                       color: '#ffffff',
-                      width: '85px',
-                      minWidth: '85px',
+                      width: '70px',
+                      minWidth: '70px',
                       borderBottom: '1px solid #334155',
                       borderRight: '1px solid #334155',
-                      padding: '10px 4px',
+                      padding: '6px 2px',
                     }}
                   >
                     HCODE
@@ -223,16 +223,16 @@ export default async function ReportFteMonthlyPage({ searchParams }: PageProps) 
                     style={{
                       position: 'sticky',
                       top: 0,
-                      left: 140,
+                      left: 110,
                       zIndex: 30,
                       backgroundColor: '#0f172a',
                       color: '#ffffff',
-                      width: '210px',
-                      minWidth: '210px',
+                      width: '160px',
+                      minWidth: '160px',
                       textAlign: 'left',
                       borderBottom: '1px solid #334155',
                       borderRight: '1px solid #334155',
-                      padding: '10px 8px',
+                      padding: '6px 6px',
                     }}
                   >
                     ชื่อสถานบริการ
@@ -241,15 +241,15 @@ export default async function ReportFteMonthlyPage({ searchParams }: PageProps) 
                     style={{
                       position: 'sticky',
                       top: 0,
-                      left: 350,
+                      left: 270,
                       zIndex: 30,
                       backgroundColor: '#0f172a',
                       color: '#ffffff',
-                      width: '70px',
-                      minWidth: '70px',
+                      width: '55px',
+                      minWidth: '55px',
                       borderBottom: '1px solid #334155',
-                      borderRight: '2px solid #94a3b8',
-                      padding: '10px 4px',
+                      borderRight: '2px solid #cbd5e1',
+                      padding: '6px 2px',
                     }}
                   >
                     ระดับ
@@ -265,15 +265,15 @@ export default async function ReportFteMonthlyPage({ searchParams }: PageProps) 
                         zIndex: 10,
                         backgroundColor: '#0f172a',
                         color: '#ffffff',
-                        minWidth: '75px',
+                        minWidth: '60px',
                         borderBottom: '1px solid #334155',
                         borderRight: '1px solid #334155',
-                        padding: '8px 4px',
+                        padding: '6px 2px',
                       }}
                     >
                       {THAI_MONTHS_SHORT[i + 1]}
                       <br />
-                      <span className="badge bg-secondary fw-normal mt-1" style={{ fontSize: '11px', padding: '2px 5px' }}>
+                      <span className="badge bg-secondary fw-normal" style={{ fontSize: '9px', padding: '1px 3px' }}>
                         {monthlyStdHours[i + 1]} ชม.
                       </span>
                     </th>
@@ -287,9 +287,9 @@ export default async function ReportFteMonthlyPage({ searchParams }: PageProps) 
                       zIndex: 10,
                       backgroundColor: '#6b21a8',
                       color: '#ffffff',
-                      minWidth: '120px',
+                      minWidth: '95px',
                       borderBottom: '1px solid #334155',
-                      padding: '10px 6px',
+                      padding: '6px 4px',
                     }}
                   >
                     FTE เฉลี่ย/เดือน
@@ -313,7 +313,7 @@ export default async function ReportFteMonthlyPage({ searchParams }: PageProps) 
                           textAlign: 'center',
                           borderRight: '1px solid #e2e8f0',
                           borderBottom: '1px solid #e2e8f0',
-                          padding: '8px 4px',
+                          padding: '5px 2px',
                         }}
                       >
                         {idx + 1}
@@ -321,29 +321,30 @@ export default async function ReportFteMonthlyPage({ searchParams }: PageProps) 
                       <td
                         style={{
                           position: 'sticky',
-                          left: 55,
+                          left: 40,
                           zIndex: 15,
                           backgroundColor: '#ffffff',
                           textAlign: 'center',
                           borderRight: '1px solid #e2e8f0',
                           borderBottom: '1px solid #e2e8f0',
-                          padding: '8px 4px',
+                          padding: '5px 2px',
                         }}
                       >
-                        <span className="badge bg-secondary px-2 py-1" style={{ fontSize: '11px' }}>{hc}</span>
+                        <span className="badge bg-secondary" style={{ fontSize: '10px' }}>{hc}</span>
                       </td>
                       <td
                         style={{
                           position: 'sticky',
-                          left: 140,
+                          left: 110,
                           zIndex: 15,
                           backgroundColor: '#ffffff',
                           textAlign: 'left',
                           fontWeight: 'bold',
                           color: '#1e293b',
+                          whiteSpace: 'nowrap',
                           borderRight: '1px solid #e2e8f0',
                           borderBottom: '1px solid #e2e8f0',
-                          padding: '8px 8px',
+                          padding: '5px 6px',
                         }}
                       >
                         {h.hname}
@@ -351,16 +352,16 @@ export default async function ReportFteMonthlyPage({ searchParams }: PageProps) 
                       <td
                         style={{
                           position: 'sticky',
-                          left: 350,
+                          left: 270,
                           zIndex: 15,
                           backgroundColor: '#ffffff',
                           textAlign: 'center',
-                          borderRight: '2px solid #94a3b8',
+                          borderRight: '2px solid #cbd5e1',
                           borderBottom: '1px solid #e2e8f0',
-                          padding: '8px 4px',
+                          padding: '5px 2px',
                         }}
                       >
-                        <span className="badge bg-info text-dark px-2 py-1" style={{ fontSize: '11px' }}>{h.hospital_level}</span>
+                        <span className="badge bg-info text-dark" style={{ fontSize: '10px' }}>{h.hospital_level}</span>
                       </td>
 
                       {/* ข้อมูล 12 เดือน */}
@@ -381,7 +382,7 @@ export default async function ReportFteMonthlyPage({ searchParams }: PageProps) 
                               textAlign: 'center',
                               borderRight: '1px solid #e2e8f0',
                               borderBottom: '1px solid #e2e8f0',
-                              padding: '8px 4px',
+                              padding: '5px 2px',
                               fontWeight: hasData ? 'bold' : 'normal',
                               color: !hasData 
                                 ? '#94a3b8' 
@@ -409,11 +410,10 @@ export default async function ReportFteMonthlyPage({ searchParams }: PageProps) 
                         style={{
                           textAlign: 'center',
                           fontWeight: 'bold',
-                          fontSize: '1rem',
                           color: '#6b21a8',
                           backgroundColor: '#f8fafc',
                           borderBottom: '1px solid #e2e8f0',
-                          padding: '8px 6px',
+                          padding: '5px 4px',
                         }}
                       >
                         {completeFtes.length > 0 
@@ -427,7 +427,7 @@ export default async function ReportFteMonthlyPage({ searchParams }: PageProps) 
             </table>
           </div>
         </div>
-        <div className="card-footer bg-white text-muted small py-2">
+        <div className="card-footer bg-white text-muted py-1 px-3" style={{ fontSize: '11px' }}>
           <i className="fa-solid fa-circle-info text-warning me-1"></i>
           <span>* หมายเหตุ: ตัวเลขที่มีเครื่องหมาย <strong>* (สีส้ม)</strong> เป็นข้อมูลของเดือนที่ยังไม่สิ้นสุดเต็มเดือน หรือมีจำนวนวันที่ลงข้อมูลไม่ครบตามจำนวนวันในเดือนนั้น ซึ่งจะไม่นำมาคำนวณในช่อง <strong>FTE เฉลี่ย/เดือน</strong></span>
         </div>
