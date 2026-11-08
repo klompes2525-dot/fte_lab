@@ -78,7 +78,7 @@ export default async function WorkloadEditPage({ searchParams }: PageProps) {
       {/* Header ด้านบนพร้อมปุ่มกลับหน้าหลัก */}
       <div className="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
         <h4 className="m-0 fw-bold text-primary fs-5">
-          จัดการข้อมูลเจ้าหน้าที่ห้องแล็บ (ยกเว้นผู้ช่วย)
+          จัดการข้อมูลเจ้าหน้าที่ห้องแล็บ ((นักเทคนิคการแพทย์/นักวิทยาศาสตร์การแพทย์/เจ้าพนักงานวิทยาศาสตร์การแพทย์))
         </h4>
         <Link
           href={`/?hospital_code=${selectedHcode}&month=${selectedMonth}&year=${buddhistYear}`}
