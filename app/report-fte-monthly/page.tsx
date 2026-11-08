@@ -96,72 +96,293 @@ export default async function ReportFteMonthlyPage({ searchParams }: PageProps) 
   });
 
   return (
-    <div className="container-fluid px-4 py-4">
+    <div className="container-fluid px-3 py-3" style={{ fontSize: '0.8rem' }}>
       <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" />
-      <div className="d-flex justify-content-between align-items-center mb-3">
-        <h3 className="m-0 fw-bold">รายงานสรุปกรอบอัตรากำลังที่ต้องการ (FTE) รายเดือน</h3>
-        <Link href={`/?year=${buddhistYear}`} className="btn btn-outline-secondary">หน้าหลัก</Link>
+      <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+
+      {/* Header Navigation */}
+      <div className="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
+        <h4 className="m-0 fw-bold text-dark fs-5">
+          <i className="fa-solid fa-users-gear text-primary me-2"></i>
+          รายงานสรุปกรอบอัตรากำลังที่ต้องการ (FTE) รายเดือน
+        </h4>
+        <div className="d-flex gap-2">
+          <Link href={`/?year=${buddhistYear}`} className="btn btn-outline-secondary btn-sm fw-bold">
+            <i className="fa-solid fa-arrow-left me-1"></i> หน้าหลัก (คำนวณ FTE)
+          </Link>
+          <Link href={`/report-productivity?year=${buddhistYear}`} className="btn btn-outline-warning btn-sm text-dark fw-bold">
+            Productivity (%)
+          </Link>
+          <Link href={`/report-summary?year=${buddhistYear}`} className="btn btn-outline-primary btn-sm fw-bold">
+            สรุปปริมาณงานรายเดือน
+          </Link>
+        </div>
       </div>
 
-      <div className="card mb-4 p-3">
-        <form method="GET" className="row g-3 align-items-end">
-          <div className="col-md-4">
-            <label className="form-label fw-bold small">เลือกปี พ.ศ.</label>
-            <select name="year" defaultValue={buddhistYear} className="form-select">
+      {/* ตัวกรอง ปี พ.ศ. (แบบกะทัดรัด) */}
+      <div className="card mb-3 p-2 shadow-sm border-0">
+        <form method="GET" className="row g-2 align-items-end">
+          <div className="col-auto">
+            <label className="form-label fw-bold small mb-1">เลือกปี พ.ศ.</label>
+            <select name="year" defaultValue={buddhistYear} className="form-select form-select-sm" style={{ width: '140px' }}>
               {[buddhistYear - 1, buddhistYear, buddhistYear + 1].map(y => (
                 <option key={y} value={y}>{y}</option>
               ))}
             </select>
           </div>
-          <div className="col-md-2">
-            <button type="submit" className="btn text-white w-100" style={{ backgroundColor: '#8b5cf6' }}>แสดงรายงาน</button>
+          <div className="col-auto">
+            <button type="submit" className="btn btn-sm text-white fw-bold px-3" style={{ backgroundColor: '#8b5cf6' }}>
+              แสดงรายงาน
+            </button>
           </div>
         </form>
       </div>
 
+      {/* ตารางแสดง FTE พร้อม Fixed Left Columns + Compact Dimensions */}
       <div className="card border-0 shadow-sm">
-        <div className="card-body p-0 table-responsive">
-          <table className="table table-hover table-bordered mb-0 align-middle text-nowrap">
-            <thead className="table-dark text-center">
-              <tr>
-                <th>ลำดับ</th>
-                <th>HCODE</th>
-                <th className="text-start">ชื่อสถานบริการ</th>
-                <th>ระดับ</th>
-                {[...Array(12)].map((_, i) => (
-                  <th key={i + 1}>{THAI_MONTHS_SHORT[i + 1]}<br/><span className="badge bg-secondary">{monthlyStdHours[i + 1]} ชม.</span></th>
-                ))}
-                <th style={{ backgroundColor: '#6b21a8' }}>FTE เฉลี่ย/เดือน</th>
-              </tr>
-            </thead>
-            <tbody>
-              {hospitals?.map((h, idx) => {
-                const activeFtes: number[] = [];
-                return (
-                  <tr key={h.hcode}>
-                    <td className="text-center">{idx + 1}</td>
-                    <td className="text-center"><span className="badge bg-secondary">{h.hcode}</span></td>
-                    <td className="fw-bold">{h.hname}</td>
-                    <td className="text-center">{h.hospital_level}</td>
-                    {[...Array(12)].map((_, i) => {
-                      const m = i + 1;
-                      const fte = fteMatrix[h.hcode][m];
-                      const hasData = hasDataMatrix[h.hcode][m];
-                      if (hasData) activeFtes.push(fte);
-                      return (
-                        <td key={m} className={`text-center ${fte > 0 ? 'fw-bold text-purple' : 'text-muted'}`}>
-                          {hasData ? fte.toFixed(2) : '-'}
-                        </td>
-                      );
-                    })}
-                    <td className="text-center fw-bold bg-light" style={{ color: '#7c3aed' }}>
-                      {activeFtes.length > 0 ? (activeFtes.reduce((a, b) => a + b, 0) / activeFtes.length).toFixed(2) : '-'}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+        <div className="card-body p-0">
+          <div
+            style={{
+              maxHeight: 'calc(100vh - 180px)',
+              overflow: 'auto',
+              border: '1px solid #cbd5e1',
+              borderRadius: '6px',
+              backgroundColor: '#ffffff',
+            }}
+          >
+            <table
+              style={{
+                borderCollapse: 'separate',
+                borderSpacing: 0,
+                width: '100%',
+                minWidth: '1100px',
+                fontSize: '0.8rem',
+              }}
+            >
+              <thead>
+                <tr className="text-center">
+                  {/* Sticky Header Top & Left Columns (1-4) */}
+                  <th
+                    style={{
+                      position: 'sticky',
+                      top: 0,
+                      left: 0,
+                      zIndex: 30,
+                      backgroundColor: '#0f172a',
+                      color: '#ffffff',
+                      width: '40px',
+                      minWidth: '40px',
+                      borderBottom: '1px solid #334155',
+                      borderRight: '1px solid #334155',
+                      padding: '6px 2px',
+                    }}
+                  >
+                    ลำดับ
+                  </th>
+                  <th
+                    style={{
+                      position: 'sticky',
+                      top: 0,
+                      left: 40,
+                      zIndex: 30,
+                      backgroundColor: '#0f172a',
+                      color: '#ffffff',
+                      width: '70px',
+                      minWidth: '70px',
+                      borderBottom: '1px solid #334155',
+                      borderRight: '1px solid #334155',
+                      padding: '6px 2px',
+                    }}
+                  >
+                    HCODE
+                  </th>
+                  <th
+                    style={{
+                      position: 'sticky',
+                      top: 0,
+                      left: 110,
+                      zIndex: 30,
+                      backgroundColor: '#0f172a',
+                      color: '#ffffff',
+                      width: '160px',
+                      minWidth: '160px',
+                      textAlign: 'left',
+                      borderBottom: '1px solid #334155',
+                      borderRight: '1px solid #334155',
+                      padding: '6px 6px',
+                    }}
+                  >
+                    ชื่อสถานบริการ
+                  </th>
+                  <th
+                    style={{
+                      position: 'sticky',
+                      top: 0,
+                      left: 270,
+                      zIndex: 30,
+                      backgroundColor: '#0f172a',
+                      color: '#ffffff',
+                      width: '55px',
+                      minWidth: '55px',
+                      borderBottom: '1px solid #334155',
+                      borderRight: '1px solid #cbd5e1',
+                      padding: '6px 2px',
+                    }}
+                  >
+                    ระดับ
+                  </th>
+
+                  {/* Header 12 เดือน */}
+                  {[...Array(12)].map((_, i) => (
+                    <th
+                      key={i + 1}
+                      style={{
+                        position: 'sticky',
+                        top: 0,
+                        zIndex: 10,
+                        backgroundColor: '#0f172a',
+                        color: '#ffffff',
+                        minWidth: '60px',
+                        borderBottom: '1px solid #334155',
+                        borderRight: '1px solid #334155',
+                        padding: '6px 2px',
+                      }}
+                    >
+                      {THAI_MONTHS_SHORT[i + 1]}
+                      <br />
+                      <span className="badge bg-secondary font-weight-normal" style={{ fontSize: '9px', padding: '1px 3px' }}>
+                        {monthlyStdHours[i + 1]} ชม.
+                      </span>
+                    </th>
+                  ))}
+
+                  {/* Header FTE เฉลี่ย */}
+                  <th
+                    style={{
+                      position: 'sticky',
+                      top: 0,
+                      zIndex: 10,
+                      backgroundColor: '#6b21a8',
+                      color: '#ffffff',
+                      minWidth: '95px',
+                      borderBottom: '1px solid #334155',
+                      padding: '6px 4px',
+                    }}
+                  >
+                    FTE เฉลี่ย/เดือน
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {hospitals?.map((h, idx) => {
+                  const activeFtes: number[] = [];
+                  const hc = String(h.hcode);
+
+                  return (
+                    <tr key={hc} style={{ borderBottom: '1px solid #e2e8f0' }}>
+                      {/* Body Left Sticky Columns (1-4) */}
+                      <td
+                        style={{
+                          position: 'sticky',
+                          left: 0,
+                          zIndex: 15,
+                          backgroundColor: '#ffffff',
+                          textAlign: 'center',
+                          borderRight: '1px solid #e2e8f0',
+                          borderBottom: '1px solid #e2e8f0',
+                          padding: '5px 2px',
+                        }}
+                      >
+                        {idx + 1}
+                      </td>
+                      <td
+                        style={{
+                          position: 'sticky',
+                          left: 40,
+                          zIndex: 15,
+                          backgroundColor: '#ffffff',
+                          textAlign: 'center',
+                          borderRight: '1px solid #e2e8f0',
+                          borderBottom: '1px solid #e2e8f0',
+                          padding: '5px 2px',
+                        }}
+                      >
+                        <span className="badge bg-secondary" style={{ fontSize: '10px' }}>{hc}</span>
+                      </td>
+                      <td
+                        style={{
+                          position: 'sticky',
+                          left: 110,
+                          zIndex: 15,
+                          backgroundColor: '#ffffff',
+                          textAlign: 'left',
+                          fontWeight: 'bold',
+                          color: '#1e293b',
+                          borderRight: '1px solid #e2e8f0',
+                          borderBottom: '1px solid #e2e8f0',
+                          padding: '5px 6px',
+                        }}
+                      >
+                        {h.hname}
+                      </td>
+                      <td
+                        style={{
+                          position: 'sticky',
+                          left: 270,
+                          zIndex: 15,
+                          backgroundColor: '#ffffff',
+                          textAlign: 'center',
+                          borderRight: '1px solid #cbd5e1',
+                          borderBottom: '1px solid #e2e8f0',
+                          padding: '5px 2px',
+                        }}
+                      >
+                        <span className="badge bg-info text-dark" style={{ fontSize: '10px' }}>{h.hospital_level}</span>
+                      </td>
+
+                      {/* ข้อมูล 12 เดือน */}
+                      {[...Array(12)].map((_, i) => {
+                        const m = i + 1;
+                        const fte = fteMatrix[hc]?.[m] || 0;
+                        const hasData = hasDataMatrix[hc]?.[m] || false;
+                        if (hasData) activeFtes.push(fte);
+
+                        return (
+                          <td
+                            key={m}
+                            style={{
+                              textAlign: 'center',
+                              borderRight: '1px solid #e2e8f0',
+                              borderBottom: '1px solid #e2e8f0',
+                              padding: '5px 2px',
+                              fontWeight: hasData ? 'bold' : 'normal',
+                              color: hasData ? '#7c3aed' : '#94a3b8',
+                            }}
+                          >
+                            {hasData ? fte.toFixed(2) : '-'}
+                          </td>
+                        );
+                      })}
+
+                      {/* FTE เฉลี่ยประจำ รพ. */}
+                      <td
+                        style={{
+                          textAlign: 'center',
+                          fontWeight: 'bold',
+                          color: '#6b21a8',
+                          backgroundColor: '#f8fafc',
+                          borderBottom: '1px solid #e2e8f0',
+                          padding: '5px 4px',
+                        }}
+                      >
+                        {activeFtes.length > 0 ? (activeFtes.reduce((a, b) => a + b, 0) / activeFtes.length).toFixed(2) : '-'}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
     </div>
