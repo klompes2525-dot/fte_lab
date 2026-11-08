@@ -50,27 +50,30 @@ export default async function WorkloadEditPage({ searchParams }: PageProps) {
   const rows = dailyRows || [];
 
   return (
-    <div className="container py-4">
+    <div className="container py-3" style={{ fontSize: '0.85rem' }}>
+      <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" />
+      <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+
       {/* Header ด้านบนพร้อมปุ่มกลับหน้าหลัก */}
-      <div className="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
-        <h3 className="m-0 fw-bold text-primary">
-          จัดการข้อมูลจำนวนเจ้าหน้าที่ ที่ปฏิบัติงาน (staff_mt)
-        </h3>
+      <div className="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+        <h4 className="m-0 fw-bold text-primary fs-5">
+          จัดการข้อมูลเจ้าหน้าที่ห้องแล็บ (ยกเว้นผู้ช่วย)
+        </h4>
         <Link
           href={`/?hospital_code=${selectedHcode}&month=${selectedMonth}&year=${buddhistYear}`}
-          className="btn btn-outline-secondary fw-bold"
+          className="btn btn-outline-secondary btn-sm fw-bold px-3"
         >
           <i className="fa-solid fa-arrow-left me-1"></i> กลับหน้าหลัก
         </Link>
       </div>
 
-      {/* ตัวกรอง ค้นหาข้อมูล */}
-      <div className="card mb-4 shadow-sm border-0">
-        <div className="card-body">
-          <form method="GET" className="row g-3 align-items-end">
+      {/* ตัวกรอง ค้นหาข้อมูล (Compact) */}
+      <div className="card mb-3 shadow-sm border-0">
+        <div className="card-body py-2">
+          <form method="GET" className="row g-2 align-items-end">
             <div className="col-md-5">
-              <label className="form-label fw-bold">เลือกโรงพยาบาล</label>
-              <select name="hospital_code" defaultValue={selectedHcode} className="form-select">
+              <label className="form-label fw-bold small mb-1">เลือกโรงพยาบาล</label>
+              <select name="hospital_code" defaultValue={selectedHcode} className="form-select form-select-sm">
                 {hospitals.map((h) => (
                   <option key={h.hcode} value={h.hcode}>
                     [{h.hcode}] {h.hname}
@@ -79,8 +82,8 @@ export default async function WorkloadEditPage({ searchParams }: PageProps) {
               </select>
             </div>
             <div className="col-md-3">
-              <label className="form-label fw-bold">เลือกเดือน</label>
-              <select name="month" defaultValue={selectedMonth} className="form-select">
+              <label className="form-label fw-bold small mb-1">เลือกเดือน</label>
+              <select name="month" defaultValue={selectedMonth} className="form-select form-select-sm">
                 {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
                   <option key={m} value={m}>
                     {m}
@@ -89,16 +92,16 @@ export default async function WorkloadEditPage({ searchParams }: PageProps) {
               </select>
             </div>
             <div className="col-md-2">
-              <label className="form-label fw-bold">เลือกปี (ค.ศ.)</label>
+              <label className="form-label fw-bold small mb-1">เลือกปี (ค.ศ.)</label>
               <input
                 type="number"
                 name="year"
                 defaultValue={adYear}
-                className="form-control"
+                className="form-control form-select-sm"
               />
             </div>
             <div className="col-md-2">
-              <button type="submit" className="btn btn-primary w-100 fw-bold">
+              <button type="submit" className="btn btn-primary btn-sm w-100 fw-bold">
                 ค้นหาข้อมูล
               </button>
             </div>
@@ -106,26 +109,26 @@ export default async function WorkloadEditPage({ searchParams }: PageProps) {
         </div>
       </div>
 
-      {/* ฟอร์มกรอกข้อมูลพร้อมการ Fixed หัวตาราง */}
+      {/* ฟอร์มกรอกข้อมูลพร้อม Sticky Header และปรับสเกล FHD */}
       <form action={updateStaffMt}>
         <input type="hidden" name="hospital_code" value={selectedHcode} />
         <input type="hidden" name="month" value={selectedMonth} />
         <input type="hidden" name="year" value={adYear} />
 
         <div
-          className="table-responsive shadow-sm border rounded mb-3"
-          style={{ maxHeight: '62vh', overflowY: 'auto' }}
+          className="table-responsive shadow-sm border rounded mb-2"
+          style={{ maxHeight: 'calc(100vh - 270px)', overflowY: 'auto' }}
         >
-          <table className="table table-hover align-middle mb-0">
+          <table className="table table-hover align-middle mb-0" style={{ fontSize: '0.8rem' }}>
             <thead
               className="table-dark text-center"
               style={{ position: 'sticky', top: 0, zIndex: 10 }}
             >
               <tr>
-                <th style={{ width: '30%' }}>วันที่ (start_date)</th>
-                <th style={{ width: '35%' }}>รวมภาระงาน (grand_total)</th>
-                <th style={{ width: '35%', backgroundColor: '#ffc107', color: '#000' }}>
-                  เจ้าหน้าที่ปฏิบัติงาน (staff_mt)
+                <th style={{ width: '30%', padding: '8px 4px' }}>วันที่ (start_date)</th>
+                <th style={{ width: '35%', padding: '8px 4px' }}>รวมภาระงาน (grand_total)</th>
+                <th style={{ width: '35%', backgroundColor: '#ffc107', color: '#000', padding: '8px 4px' }}>
+                  เจ้าหน้าที่ห้องแล็บ (ยกเว้นผู้ช่วย)
                 </th>
               </tr>
             </thead>
@@ -154,19 +157,19 @@ export default async function WorkloadEditPage({ searchParams }: PageProps) {
 
                   return (
                     <tr key={r.id}>
-                      <td className="text-center fw-bold">{r.start_date}</td>
-                      <td className="text-center fw-bold text-primary">
+                      <td className="text-center fw-bold" style={{ padding: '4px 8px' }}>{r.start_date}</td>
+                      <td className="text-center fw-bold text-primary" style={{ padding: '4px 8px' }}>
                         {grandTotal.toLocaleString()}
                       </td>
-                      <td className="text-center">
+                      <td className="text-center" style={{ padding: '4px 8px' }}>
                         <input
                           type="number"
                           step="0.1"
                           min="0"
                           name={`staff_mt_${r.id}`}
                           defaultValue={r.staff_mt ?? 0}
-                          className="form-control text-center fw-bold border-warning ms-auto me-auto"
-                          style={{ maxWidth: '200px' }}
+                          className="form-control form-control-sm text-center fw-bold border-warning ms-auto me-auto"
+                          style={{ maxWidth: '150px', padding: '2px 6px' }}
                         />
                       </td>
                     </tr>
@@ -178,8 +181,8 @@ export default async function WorkloadEditPage({ searchParams }: PageProps) {
         </div>
 
         <div className="d-flex justify-content-end">
-          <button type="submit" className="btn btn-success btn-lg fw-bold px-4">
-            บันทึกการแก้ไข
+          <button type="submit" className="btn btn-success fw-bold px-4 py-2">
+            <i className="fa-solid fa-floppy-disk me-1"></i> บันทึกการแก้ไข
           </button>
         </div>
       </form>
