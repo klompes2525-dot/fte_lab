@@ -44,7 +44,7 @@ export default async function ReportSummaryPage({ searchParams }: PageProps) {
 
   const activities = activitiesData || [];
 
-  // 3. ดึงข้อมูลปริมาณงานสะสมรายเดือน โดยใช้ Pagination (.range Loop) ปลดล็อกลิมิต 1,000 รายการของ Supabase
+  // 3. ดึงข้อมูลปริมาณงานสะสมรายเดือน โดยใช้ Pagination (.range Loop) ปลดล็อกลิมิต 1,000 รายการ
   const startDateStr = `${adYear}-${String(selectedMonth).padStart(2, '0')}-01`;
   const lastDay = new Date(adYear, selectedMonth, 0).getDate();
   const endDateStr = `${adYear}-${String(selectedMonth).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
@@ -108,7 +108,6 @@ export default async function ReportSummaryPage({ searchParams }: PageProps) {
   let grandTotalAll = 0;
 
   const currY = currentYearAD + 543;
-  // ขยายช่วงปีย้อนหลังถึง 2567 (currY - 2)
   const yearsList = [currY - 2, currY - 1, currY, currY + 1];
 
   return (
@@ -123,6 +122,13 @@ export default async function ReportSummaryPage({ searchParams }: PageProps) {
           รายงานสรุปเปรียบเทียบปริมาณงานรายกิจกรรม (ทุก รพ.)
         </h4>
         <div className="d-flex gap-2">
+          {/* ปุ่มสลับไปดูรายงานสรุปปริมาณงานรายปี */}
+          <Link
+            href={`/report-summary-yearly?year=${buddhistYear}`}
+            className="btn btn-success btn-sm fw-bold"
+          >
+            <i className="fa-solid fa-calendar-days me-1"></i> สรุปปริมาณงานรายปี (ทุก รพ.)
+          </Link>
           <Link
             href={`/?year=${buddhistYear}&month=${selectedMonth}`}
             className="btn btn-outline-secondary btn-sm fw-bold"
@@ -159,7 +165,7 @@ export default async function ReportSummaryPage({ searchParams }: PageProps) {
         </form>
       </div>
 
-      {/* ตารางสรุปเปรียบเทียบ พร้อม Sticky 3 Columns & Compact FHD Scale */}
+      {/* ตารางสรุปเปรียบเทียบ */}
       <div className="card border-0 shadow-sm">
         <div className="card-header bg-white py-2 border-0">
           <h6 className="m-0 text-primary fw-bold">
