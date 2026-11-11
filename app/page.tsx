@@ -152,7 +152,7 @@ export default async function Page({ searchParams }: PageProps) {
             <i className="fa-solid fa-calendar-days me-1"></i> สรุป FTE รายปี (ทุก รพ.)
           </Link>
           <Link href={`/report-summary?year=${buddhistYear}&month=${selectedMonth}`} className="btn btn-outline-primary btn-sm fw-bold py-1 px-2">
-            สรุปปริมาณงานรายเดือน
+            สรุปปริมาณงานรายเดือน/ปี
           </Link>
           <Link href={`/workload-edit?hospital_code=${selectedHcode}&month=${selectedMonth}&year=${selectedYear}`} className="btn btn-outline-dark btn-sm fw-bold py-1 px-2">
             ผู้ปฏิบัติงานประจำวัน
