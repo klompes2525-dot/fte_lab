@@ -82,13 +82,31 @@ export default async function ReportProductivityPage({ searchParams }: PageProps
     monthlyStdHours[m] = wDays * 7;
   }
 
-  // 4. ดึงข้อมูลภาระงานรายวันของทั้งปี
-  const { data: rawWorkload } = await supabase
-    .from('workload_daily')
-    .select('*')
-    .gte('start_date', startDateStr)
-    .lte('start_date', endDateStr)
-    .range(0, 49999);
+  // 4. ดึงข้อมูลภาระงานรายวันของทั้งปี โดยใช้ Pagination (.range Loop) เพื่อปลดล็อกลิมิต 1,000 แถวของ Supabase
+  let rawWorkload: any[] = [];
+  let page = 0;
+  const pageSize = 1000;
+  let hasMore = true;
+
+  while (hasMore) {
+    const { data: chunk, error } = await supabase
+      .from('workload_daily')
+      .select('*')
+      .gte('start_date', startDateStr)
+      .lte('start_date', endDateStr)
+      .range(page * pageSize, (page + 1) * pageSize - 1);
+
+    if (error || !chunk || chunk.length === 0) {
+      hasMore = false;
+    } else {
+      rawWorkload = rawWorkload.concat(chunk);
+      if (chunk.length < pageSize) {
+        hasMore = false;
+      } else {
+        page++;
+      }
+    }
+  }
 
   // สรุปข้อมูลรายเดือนรายโรงพยาบาล และนับจำนวนวันที่บันทึกจริง
   interface MonthlyAgg {
@@ -100,8 +118,18 @@ export default async function ReportProductivityPage({ searchParams }: PageProps
   const recordedDaysMatrix: Record<string, Record<number, Set<string>>> = {};
 
   (rawWorkload || []).forEach((row: any) => {
-    const hc = String(row.hospital_code);
-    const workMonth = new Date(row.start_date).getMonth() + 1;
+    const hc = String(row.hospital_code).trim();
+    
+    // แกะเดือนตรงๆ จากสตริงวันที่เพื่อป้องกันปัญหา Timezone บน Server ชิฟต์เดือน
+    let workMonth = 0;
+    if (row.start_date) {
+      const dateParts = String(row.start_date).split(/[-T]/);
+      if (dateParts.length >= 2) {
+        workMonth = parseInt(dateParts[1], 10);
+      }
+    }
+
+    if (workMonth < 1 || workMonth > 12) return;
 
     if (!workloadMatrix[hc]) workloadMatrix[hc] = {};
     if (!workloadMatrix[hc][workMonth]) {
@@ -144,7 +172,7 @@ export default async function ReportProductivityPage({ searchParams }: PageProps
   const isCompleteMonthMatrix: Record<string, Record<number, boolean>> = {};
 
   hospitals.forEach((h) => {
-    const hc = String(h.hcode);
+    const hc = String(h.hcode).trim();
     const level = h.hospital_level;
     const levelKey = level ? level.toLowerCase().trim() : 'f2';
     const stdCol = LEVEL_COLUMN_MAP[level] || LEVEL_COLUMN_MAP[levelKey] || `hospital_${levelKey}`;
@@ -217,7 +245,8 @@ export default async function ReportProductivityPage({ searchParams }: PageProps
   const allHospAvgProds: number[] = [];
 
   const currY = currentYearAD + 543;
-  const yearsList = [currY - 1, currY, currY + 1];
+  // เพิ่มตัวเลือกปีย้อนหลังให้ครอบคลุม 2567 (currY - 2) จนถึง 2570 (currY + 1)
+  const yearsList = [currY - 2, currY - 1, currY, currY + 1];
 
   return (
     <div className="container-fluid px-3 py-3" style={{ fontSize: '0.8rem' }}>
@@ -265,7 +294,6 @@ export default async function ReportProductivityPage({ searchParams }: PageProps
           <h6 className="m-0 text-dark fw-bold">
             ตารางแสดงผลิตภาพ Productivity (%) ประจำปี พ.ศ. {buddhistYear}
           </h6>
-          {/* ขยายขนาดตัวอักษรของคำอธิบายสถานะและสูตรคำนวณเป็น 13px */}
           <div className="d-flex gap-2 align-items-center flex-wrap" style={{ fontSize: '13px' }}>
             <span className="badge bg-danger px-2 py-1.5" style={{ fontSize: '12.5px' }}>&gt; 100% (งานเกินกำลัง)</span>
             <span className="badge bg-success px-2 py-1.5" style={{ fontSize: '12.5px' }}>85% - 100% (พอดี)</span>
@@ -404,7 +432,7 @@ export default async function ReportProductivityPage({ searchParams }: PageProps
               </thead>
               <tbody>
                 {hospitals.map((h, idx) => {
-                  const hc = String(h.hcode);
+                  const hc = String(h.hcode).trim();
                   const completeProds: number[] = [];
 
                   return (
