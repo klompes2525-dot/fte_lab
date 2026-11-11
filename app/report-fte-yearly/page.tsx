@@ -19,10 +19,10 @@ export default async function YearlyReportPage({ searchParams }: PageProps) {
   if (selectedYear > 2400) selectedYear -= 543;
   const buddhistYear = selectedYear + 543;
 
-  // 2. ดึงรายชื่อโรงพยาบาลทั้งหมด
+  // 2. ดึงรายชื่อโรงพยาบาลทั้งหมด พร้อมคอลัมน์ fte_lab
   const { data: hospitals } = await supabase
     .from('hospitals')
-    .select('hcode, hname, hospital_level')
+    .select('hcode, hname, hospital_level, fte_lab')
     .eq('is_active', 1)
     .order('hcode', { ascending: true });
 
@@ -163,6 +163,12 @@ export default async function YearlyReportPage({ searchParams }: PageProps) {
   const totalHospCount = hospitals?.length || 0;
   const avgYearlyFTEPerHosp = totalHospCount > 0 ? grandTotalYearFTE / (12 * totalHospCount) : 0;
 
+  // คำนวณผลรวมกรอบ FTE (fte_lab) ของทุกโรงพยาบาล
+  const totalFteLab = (hospitals || []).reduce((sum, h) => sum + (Number(h.fte_lab) || 0), 0);
+
+  const currY = currentYearAD + 543;
+  const yearsList = [currY - 2, currY - 1, currY, currY + 1];
+
   return (
     <div className="container-fluid px-3 py-2 d-flex flex-column" style={{ fontSize: '0.8rem', minHeight: '100vh' }}>
       <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" />
@@ -183,8 +189,8 @@ export default async function YearlyReportPage({ searchParams }: PageProps) {
               className="form-select form-select-sm"
               style={{ width: '110px' }}
             >
-              {[currentYearAD - 2, currentYearAD - 1, currentYearAD, currentYearAD + 1].map(y => (
-                <option key={y} value={y + 543}>{y + 543}</option>
+              {yearsList.map(y => (
+                <option key={y} value={y}>{y}</option>
               ))}
             </select>
             <button type="submit" className="btn btn-primary btn-sm fw-bold">กรอง</button>
@@ -192,6 +198,36 @@ export default async function YearlyReportPage({ searchParams }: PageProps) {
           <Link href="/" className="btn btn-outline-secondary btn-sm fw-bold">
             <i className="fa-solid fa-arrow-left me-1"></i> กลับหน้ารายเดือน
           </Link>
+        </div>
+      </div>
+
+      {/* Summary Cards (ย้ายขึ้นมาอยู่ข้างบนตารางติดกับส่วน Filter) */}
+      <div className="mb-2">
+        <div className="row g-2">
+          <div className="col-md-3">
+            <div className="card p-2 border-0 shadow-sm border-start border-4 border-primary bg-white">
+              <div className="text-muted small fw-bold">จำนวนโรงพยาบาลทั้งหมด</div>
+              <div className="fs-5 fw-bold text-primary">{totalHospCount} แห่ง</div>
+            </div>
+          </div>
+          <div className="col-md-3">
+            <div className="card p-2 border-0 shadow-sm border-start border-4 border-success bg-white">
+              <div className="text-muted small fw-bold">รวม FTE ทุก รพ. ตลอดทั้งปี</div>
+              <div className="fs-5 fw-bold text-success">{grandTotalYearFTE.toFixed(2)} คน-เดือน</div>
+            </div>
+          </div>
+          <div className="col-md-3">
+            <div className="card p-2 border-0 shadow-sm border-start border-4 border-warning bg-white">
+              <div className="text-muted small fw-bold">เฉลี่ย FTE / โรงพยาบาล / เดือน</div>
+              <div className="fs-5 fw-bold text-warning">{avgYearlyFTEPerHosp.toFixed(2)} คน</div>
+            </div>
+          </div>
+          <div className="col-md-3">
+            <div className="card p-2 border-0 shadow-sm border-start border-4 bg-white" style={{ borderColor: '#8b5cf6' }}>
+              <div className="text-muted small fw-bold">ปีงบประมาณ / พ.ศ.</div>
+              <div className="fs-5 fw-bold" style={{ color: '#8b5cf6' }}>{buddhistYear}</div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -209,6 +245,10 @@ export default async function YearlyReportPage({ searchParams }: PageProps) {
                     ชื่อโรงพยาบาล
                   </th>
                   <th className="sticky-head-top text-center" style={{ width: '70px' }}>ระดับ</th>
+                  {/* เพิ่มคอลัมน์ กรอบ FTE ต่อจาก ระดับ */}
+                  <th className="sticky-head-top text-center bg-secondary text-white" style={{ width: '90px' }}>
+                    กรอบ FTE
+                  </th>
                   
                   {Object.values(THAI_MONTHS).map((mName) => (
                     <th key={mName} className="sticky-head-top text-center" style={{ width: '75px' }}>
@@ -224,6 +264,7 @@ export default async function YearlyReportPage({ searchParams }: PageProps) {
                 {hospitals?.map((h) => {
                   const hcode = String(h.hcode).trim();
                   let hospYearFTE = 0;
+                  const fteLabVal = h.fte_lab !== null && h.fte_lab !== undefined ? Number(h.fte_lab) : null;
 
                   return (
                     <tr key={hcode}>
@@ -237,6 +278,11 @@ export default async function YearlyReportPage({ searchParams }: PageProps) {
 
                       <td className="text-center">
                         <span className="badge bg-secondary" style={{ fontSize: '10px' }}>{h.hospital_level}</span>
+                      </td>
+
+                      {/* แสดง กรอบ FTE (fte_lab) ต่อจากระดับ */}
+                      <td className="text-center fw-bold text-dark">
+                        {fteLabVal !== null ? fteLabVal.toFixed(2) : '-'}
                       </td>
 
                       {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => {
@@ -265,6 +311,11 @@ export default async function YearlyReportPage({ searchParams }: PageProps) {
                   </td>
                   <td className="text-center">-</td>
 
+                  {/* รวม กรอบ FTE (fte_lab) */}
+                  <td className="text-center text-primary fw-bold">
+                    {totalFteLab > 0 ? totalFteLab.toFixed(2) : '-'}
+                  </td>
+
                   {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
                     <td key={m} className="text-end text-success fw-bold">
                       {(monthTotalFTE[m] || 0).toFixed(2)}
@@ -277,36 +328,6 @@ export default async function YearlyReportPage({ searchParams }: PageProps) {
                 </tr>
               </tfoot>
             </table>
-          </div>
-        </div>
-      </div>
-
-      {/* Sticky Bottom Summary Cards */}
-      <div className="sticky-bottom-summary">
-        <div className="row g-2">
-          <div className="col-md-3">
-            <div className="card p-2 border-0 shadow-sm border-start border-4 border-primary bg-white">
-              <div className="text-muted small fw-bold">จำนวนโรงพยาบาลทั้งหมด</div>
-              <div className="fs-5 fw-bold text-primary">{totalHospCount} แห่ง</div>
-            </div>
-          </div>
-          <div className="col-md-3">
-            <div className="card p-2 border-0 shadow-sm border-start border-4 border-success bg-white">
-              <div className="text-muted small fw-bold">รวม FTE ทุก รพ. ตลอดทั้งปี</div>
-              <div className="fs-5 fw-bold text-success">{grandTotalYearFTE.toFixed(2)} คน-เดือน</div>
-            </div>
-          </div>
-          <div className="col-md-3">
-            <div className="card p-2 border-0 shadow-sm border-start border-4 border-warning bg-white">
-              <div className="text-muted small fw-bold">เฉลี่ย FTE / โรงพยาบาล / เดือน</div>
-              <div className="fs-5 fw-bold text-warning">{avgYearlyFTEPerHosp.toFixed(2)} คน</div>
-            </div>
-          </div>
-          <div className="col-md-3">
-            <div className="card p-2 border-0 shadow-sm border-start border-4 bg-white" style={{ borderColor: '#8b5cf6' }}>
-              <div className="text-muted small fw-bold">ปีงบประมาณ / พ.ศ.</div>
-              <div className="fs-5 fw-bold" style={{ color: '#8b5cf6' }}>{buddhistYear}</div>
-            </div>
           </div>
         </div>
       </div>
