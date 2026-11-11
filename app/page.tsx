@@ -147,9 +147,7 @@ export default async function Page({ searchParams }: PageProps) {
           <Link href={`/report-productivity?year=${buddhistYear}`} className="btn btn-outline-warning btn-sm text-dark fw-bold py-1 px-2">
             Productivity (%)
           </Link>
-          <Link href={`/report-fte-monthly?year=${buddhistYear}`} className="btn btn-sm text-white fw-bold py-1 px-2" style={{ backgroundColor: '#8b5cf6' }}>
-            สรุป FTE รายเดือน
-          </Link>
+          {/* เหลือไว้เฉพาะปุ่มรายงาน FTE รายปี (ทุก รพ.) */}
           <Link href={`/report-fte-yearly?year=${buddhistYear}`} className="btn btn-success btn-sm fw-bold py-1 px-2">
             <i className="fa-solid fa-calendar-days me-1"></i> สรุป FTE รายปี (ทุก รพ.)
           </Link>
