@@ -150,6 +150,10 @@ export default async function Page({ searchParams }: PageProps) {
           <Link href={`/report-fte-monthly?year=${buddhistYear}`} className="btn btn-sm text-white fw-bold py-1 px-2" style={{ backgroundColor: '#8b5cf6' }}>
             สรุป FTE รายเดือน
           </Link>
+          {/* ปุ่มสลับไปหน้ารายงานรายปี */}
+          <Link href={`/report-fte-yearly?year=${buddhistYear}`} className="btn btn-success btn-sm fw-bold py-1 px-2">
+            <i className="fa-solid fa-calendar-days me-1"></i> สรุป FTE รายปี (ทุก รพ.)
+          </Link>
           <Link href={`/report-summary?year=${buddhistYear}&month=${selectedMonth}`} className="btn btn-outline-primary btn-sm fw-bold py-1 px-2">
             สรุปปริมาณงานรายเดือน
           </Link>
@@ -278,7 +282,7 @@ export default async function Page({ searchParams }: PageProps) {
           <div className="card p-2 border-0 shadow-sm border-start border-4 border-warning">
             <div className="text-muted small fw-bold">เวลามาตรฐานประจำเดือน</div>
             <div className="fs-4 fw-bold text-warning mt-1">{fteStandardHours.toFixed(1)} ชม./คน</div>
-            <div className="text-muted" style={{ fontSize: '11px' }}>{workingDays} วันทำงาน (หักวันหยุด {holidayCount} วัน) × 7 ชม.</div>
+            <div className="text-muted" style={{ fontSize: '11px' }}>{workingDays} วันทำงาน (หักวันหยุด {holidayCount} วัน) * 7 ชม.</div>
           </div>
         </div>
         <div className="col-md-3">

@@ -1,0 +1,92 @@
+/* ========================================================
+   Sticky Table & Footer Styles for Yearly Report
+   ======================================================== */
+
+/* ตู้คอนเทนเนอร์สำหรับตาราง ให้ Scroll ได้ทั้งแนวตั้งและแนวนอน */
+.table-scroll-container {
+  max-height: calc(100vh - 280px);
+  overflow: auto;
+  position: relative;
+}
+
+/* 1. หัวตาราง (Sticky Header) */
+.sticky-head-top {
+  position: sticky;
+  top: 0;
+  z-index: 20 !important;
+  background-color: #212529 !important;
+  color: #ffffff !important;
+}
+
+/* จุดตัดระหว่าง Top Header + Left Column 1 (HCODE) */
+.sticky-head-1 {
+  position: sticky;
+  top: 0;
+  left: 0;
+  z-index: 35 !important;
+  background-color: #212529 !important;
+  color: #ffffff !important;
+}
+
+/* จุดตัดระหว่าง Top Header + Left Column 2 (ชื่อ รพ.) */
+.sticky-head-2 {
+  position: sticky;
+  top: 0;
+  left: 80px;
+  z-index: 35 !important;
+  background-color: #212529 !important;
+  color: #ffffff !important;
+  border-right: 2px solid #6c757d !important;
+}
+
+/* 2. คอลัมน์ด้านซ้าย (Sticky Left Columns) */
+.sticky-col-1 {
+  position: sticky;
+  left: 0;
+  z-index: 10;
+  background-color: #ffffff;
+}
+
+.sticky-col-2 {
+  position: sticky;
+  left: 80px;
+  z-index: 10;
+  background-color: #ffffff;
+  border-right: 2px solid #dee2e6;
+}
+
+/* 3. แถวรวมสรุปท้ายตาราง (Sticky Footer Row) */
+.sticky-foot-row {
+  position: sticky;
+  bottom: 0;
+  z-index: 20;
+  background-color: #e2e8f0;
+}
+
+.sticky-foot-1 {
+  position: sticky;
+  bottom: 0;
+  left: 0;
+  z-index: 25 !important;
+  background-color: #e2e8f0 !important;
+}
+
+.sticky-foot-2 {
+  position: sticky;
+  bottom: 0;
+  left: 80px;
+  z-index: 25 !important;
+  background-color: #e2e8f0 !important;
+  border-right: 2px solid #cbd5e1 !important;
+}
+
+/* 4. แถบ Summary Cards ด้านล่างสุดของหน้าจอ */
+.sticky-bottom-summary {
+  position: sticky;
+  bottom: 0;
+  z-index: 40;
+  background-color: #f8f9fa;
+  padding-top: 8px;
+  padding-bottom: 8px;
+  border-top: 1px solid #dee2e6;
+}
