@@ -32,7 +32,7 @@ export default async function YearlyReportPage({ searchParams }: PageProps) {
     .select('*')
     .order('id', { ascending: true });
 
-  // 4. ดึงข้อมูลปริมาณงาน daily ตลอดทั้งปี
+  // 4. ดึงข้อมูลปริมาณงาน daily ตลอดทั้งปี (เพิ่ม .limit(100000) เพื่อแก้ปัญหาโดนตัดที่ 1,000 แถว)
   const startDateStr = `${selectedYear}-01-01`;
   const endDateStr = `${selectedYear}-12-31`;
 
@@ -40,7 +40,8 @@ export default async function YearlyReportPage({ searchParams }: PageProps) {
     .from('workload_daily')
     .select('*')
     .gte('start_date', startDateStr)
-    .lte('start_date', endDateStr);
+    .lte('start_date', endDateStr)
+    .limit(100000); // <-- [แก้ไขจุดที่ 1] ป้องกัน Supabase ตัดข้อมูลที่ 1,000 รายการ
 
   // 5. ดึงข้อมูลวันหยุดนักขัตฤกษ์ตลอดทั้งปี
   const { data: holidaysData } = await supabase
@@ -55,17 +56,30 @@ export default async function YearlyReportPage({ searchParams }: PageProps) {
   const workloadByHospMonth: Record<string, Record<number, Record<string, number>>> = {};
 
   yearlyDailyWorkload?.forEach(row => {
-    const hcode = String(row.hospital_code);
-    const month = new Date(row.start_date).getMonth() + 1;
-
-    if (!workloadByHospMonth[hcode]) workloadByHospMonth[hcode] = {};
-    if (!workloadByHospMonth[hcode][month]) workloadByHospMonth[hcode][month] = {};
-
-    Object.keys(row).forEach(key => {
-      if (typeof row[key] === 'number') {
-        workloadByHospMonth[hcode][month][key] = (workloadByHospMonth[hcode][month][key] || 0) + row[key];
+    // [แก้ไขจุดที่ 2] Trim ตัดช่องว่าง HCODE
+    const hcode = String(row.hospital_code).trim();
+    
+    // [แก้ไขจุดที่ 3] อ่านเดือนโดยตรงจากข้อความ 'YYYY-MM-DD' เพื่อเลี่ยงปัญหา Timezone ชิฟต์
+    let month = 0;
+    if (row.start_date) {
+      const dateParts = String(row.start_date).split(/[-T]/);
+      if (dateParts.length >= 2) {
+        month = parseInt(dateParts[1], 10);
       }
-    });
+    }
+
+    if (month >= 1 && month <= 12) {
+      if (!workloadByHospMonth[hcode]) workloadByHospMonth[hcode] = {};
+      if (!workloadByHospMonth[hcode][month]) workloadByHospMonth[hcode][month] = {};
+
+      Object.keys(row).forEach(key => {
+        // [แก้ไขจุดที่ 4] แปลงค่าเป็น Number รองรับทั้งชนิดข้อมูล number และ string ตัวเลข
+        const val = Number(row[key]);
+        if (!isNaN(val) && row[key] !== null && row[key] !== '') {
+          workloadByHospMonth[hcode][month][key] = (workloadByHospMonth[hcode][month][key] || 0) + val;
+        }
+      });
+    }
   });
 
   // คำนวณชั่วโมงมาตรฐานประจำแต่ละเดือน (1-12)
@@ -81,7 +95,7 @@ export default async function YearlyReportPage({ searchParams }: PageProps) {
   for (let m = 1; m <= 12; m++) monthTotalFTE[m] = 0;
 
   (hospitals || []).forEach(h => {
-    const hcode = String(h.hcode);
+    const hcode = String(h.hcode).trim();
     fteMatrix[hcode] = {};
 
     const hLevel = h.hospital_level || 'F2';
@@ -173,17 +187,14 @@ export default async function YearlyReportPage({ searchParams }: PageProps) {
             <table className="table table-hover table-bordered align-middle mb-0" style={{ fontSize: '0.78rem', whiteSpace: 'nowrap' }}>
               <thead>
                 <tr>
-                  {/* Sticky Column 1 Header */}
                   <th className="sticky-head-1 text-center" style={{ width: '80px' }}>
                     HCODE
                   </th>
-                  {/* Sticky Column 2 Header */}
                   <th className="sticky-head-2 text-start" style={{ width: '200px' }}>
                     ชื่อโรงพยาบาล
                   </th>
                   <th className="sticky-head-top text-center" style={{ width: '70px' }}>ระดับ</th>
                   
-                  {/* 12 Months Header */}
                   {Object.values(THAI_MONTHS).map((mName) => (
                     <th key={mName} className="sticky-head-top text-center" style={{ width: '75px' }}>
                       {mName}
@@ -196,17 +207,15 @@ export default async function YearlyReportPage({ searchParams }: PageProps) {
               </thead>
               <tbody>
                 {hospitals?.map((h) => {
-                  const hcode = String(h.hcode);
+                  const hcode = String(h.hcode).trim();
                   let hospYearFTE = 0;
 
                   return (
                     <tr key={hcode}>
-                      {/* Fixed Left Column 1: HCODE */}
                       <td className="sticky-col-1 text-center fw-bold">
                         {hcode}
                       </td>
 
-                      {/* Fixed Left Column 2: ชื่อ รพ. */}
                       <td className="sticky-col-2 text-start fw-bold">
                         {h.hname}
                       </td>
@@ -215,7 +224,6 @@ export default async function YearlyReportPage({ searchParams }: PageProps) {
                         <span className="badge bg-secondary" style={{ fontSize: '10px' }}>{h.hospital_level}</span>
                       </td>
 
-                      {/* แสดงค่า FTE แต่ละเดือน (1-12) */}
                       {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => {
                         const val = fteMatrix[hcode]?.[m] || 0;
                         hospYearFTE += val;
@@ -226,7 +234,6 @@ export default async function YearlyReportPage({ searchParams }: PageProps) {
                         );
                       })}
 
-                      {/* ค่าเฉลี่ยรายปีของโรงพยาบาลนี้ */}
                       <td className="text-end fw-bold text-primary bg-light">
                         {(hospYearFTE / 12).toFixed(2)}
                       </td>
@@ -235,7 +242,6 @@ export default async function YearlyReportPage({ searchParams }: PageProps) {
                 })}
               </tbody>
 
-              {/* Fixed Bottom Total Row */}
               <tfoot>
                 <tr className="sticky-foot-row fw-bold text-dark">
                   <td className="sticky-foot-1 text-center">รวม</td>
@@ -244,14 +250,12 @@ export default async function YearlyReportPage({ searchParams }: PageProps) {
                   </td>
                   <td className="text-center">-</td>
 
-                  {/* รวม FTE ทุก รพ. ในแต่ละเดือน */}
                   {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
                     <td key={m} className="text-end text-success fw-bold">
                       {(monthTotalFTE[m] || 0).toFixed(2)}
                     </td>
                   ))}
                   
-                  {/* เฉลี่ยรวมทั้งจังหวัด/ระบบ */}
                   <td className="text-end text-primary bg-light fw-bold">
                     {grandTotalYearFTE.toFixed(2)}
                   </td>
@@ -262,7 +266,7 @@ export default async function YearlyReportPage({ searchParams }: PageProps) {
         </div>
       </div>
 
-      {/* Sticky Bottom Summary Cards (ตรึงกล่องสรุปข้อมูลล่างสุด ไม่เลื่อนตาม Scroll) */}
+      {/* Sticky Bottom Summary Cards */}
       <div className="sticky-bottom-summary">
         <div className="row g-2">
           <div className="col-md-3">
