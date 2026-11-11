@@ -44,23 +44,41 @@ export default async function ReportSummaryPage({ searchParams }: PageProps) {
 
   const activities = activitiesData || [];
 
-  // 3. ดึงข้อมูลปริมาณงานสะสมรายเดือน แยกตามโรงพยาบาล
+  // 3. ดึงข้อมูลปริมาณงานสะสมรายเดือน โดยใช้ Pagination (.range Loop) ปลดล็อกลิมิต 1,000 รายการของ Supabase
   const startDateStr = `${adYear}-${String(selectedMonth).padStart(2, '0')}-01`;
   const lastDay = new Date(adYear, selectedMonth, 0).getDate();
   const endDateStr = `${adYear}-${String(selectedMonth).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
 
-  const { data: rawData } = await supabase
-    .from('workload_daily')
-    .select('*')
-    .gte('start_date', startDateStr)
-    .lte('start_date', endDateStr)
-    .range(0, 49999);
+  let rawData: any[] = [];
+  let page = 0;
+  const pageSize = 1000;
+  let hasMore = true;
+
+  while (hasMore) {
+    const { data: chunk, error } = await supabase
+      .from('workload_daily')
+      .select('*')
+      .gte('start_date', startDateStr)
+      .lte('start_date', endDateStr)
+      .range(page * pageSize, (page + 1) * pageSize - 1);
+
+    if (error || !chunk || chunk.length === 0) {
+      hasMore = false;
+    } else {
+      rawData = rawData.concat(chunk);
+      if (chunk.length < pageSize) {
+        hasMore = false;
+      } else {
+        page++;
+      }
+    }
+  }
 
   // จัดโครงสร้างข้อมูล volumeMatrix[hcode][activity_id] = total_volume
   const volumeMatrix: Record<string, Record<number, number>> = {};
 
   (rawData || []).forEach((row: any) => {
-    const hcode = String(row.hospital_code);
+    const hcode = String(row.hospital_code).trim();
     if (!volumeMatrix[hcode]) {
       volumeMatrix[hcode] = {
         1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0,
@@ -85,12 +103,13 @@ export default async function ReportSummaryPage({ searchParams }: PageProps) {
   // ตัวแปรสะสมยอดรวมรายโรงพยาบาล และยอดรวมทั้งหมด
   const hospitalTotals: Record<string, number> = {};
   hospitals.forEach((h) => {
-    hospitalTotals[String(h.hcode)] = 0;
+    hospitalTotals[String(h.hcode).trim()] = 0;
   });
   let grandTotalAll = 0;
 
   const currY = currentYearAD + 543;
-  const yearsList = [currY - 1, currY, currY + 1];
+  // ขยายช่วงปีย้อนหลังถึง 2567 (currY - 2)
+  const yearsList = [currY - 2, currY - 1, currY, currY + 1];
 
   return (
     <div className="container-fluid px-3 py-3" style={{ fontSize: '0.8rem' }}>
@@ -319,7 +338,7 @@ export default async function ReportSummaryPage({ searchParams }: PageProps) {
                       </td>
 
                       {hospitals.map((h) => {
-                        const hc = String(h.hcode);
+                        const hc = String(h.hcode).trim();
                         const vol = volumeMatrix[hc]?.[actId] || 0;
                         rowSum += vol;
 
@@ -388,7 +407,7 @@ export default async function ReportSummaryPage({ searchParams }: PageProps) {
                     รวมปริมาณงานทั้งหมด:
                   </td>
                   {hospitals.map((h) => {
-                    const hc = String(h.hcode);
+                    const hc = String(h.hcode).trim();
                     return (
                       <td
                         key={hc}
