@@ -32,7 +32,7 @@ export default async function YearlyReportPage({ searchParams }: PageProps) {
     .select('*')
     .order('id', { ascending: true });
 
-  // 4. ดึงข้อมูลปริมาณงาน daily ตลอดทั้งปี โดยใช้ Pagination (.range) เพื่อแก้ปัญหาโดนบล็อกที่ 1,000 แถว
+  // 4. ดึงข้อมูลปริมาณงาน daily ตลอดทั้งปี โดยใช้ Pagination (.range) เพื่อปลดล็อกลิมิต 1,000 แถว
   const startDateStr = `${selectedYear}-01-01`;
   const endDateStr = `${selectedYear}-12-31`;
 
@@ -41,7 +41,6 @@ export default async function YearlyReportPage({ searchParams }: PageProps) {
   const pageSize = 1000;
   let hasMore = true;
 
-  // วนลูปดึงข้อมูลครั้งละ 1,000 แถวจนกว่าจะหมด
   while (hasMore) {
     const { data: chunk, error } = await supabase
       .from('workload_daily')
@@ -184,7 +183,7 @@ export default async function YearlyReportPage({ searchParams }: PageProps) {
               className="form-select form-select-sm"
               style={{ width: '110px' }}
             >
-              {[currentYearAD - 1, currentYearAD, currentYearAD + 1].map(y => (
+              {[currentYearAD - 2, currentYearAD - 1, currentYearAD, currentYearAD + 1].map(y => (
                 <option key={y} value={y + 543}>{y + 543}</option>
               ))}
             </select>

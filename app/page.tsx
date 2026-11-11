@@ -150,7 +150,6 @@ export default async function Page({ searchParams }: PageProps) {
           <Link href={`/report-fte-monthly?year=${buddhistYear}`} className="btn btn-sm text-white fw-bold py-1 px-2" style={{ backgroundColor: '#8b5cf6' }}>
             สรุป FTE รายเดือน
           </Link>
-          {/* ปุ่มสลับไปหน้ารายงานรายปี */}
           <Link href={`/report-fte-yearly?year=${buddhistYear}`} className="btn btn-success btn-sm fw-bold py-1 px-2">
             <i className="fa-solid fa-calendar-days me-1"></i> สรุป FTE รายปี (ทุก รพ.)
           </Link>
@@ -182,7 +181,7 @@ export default async function Page({ searchParams }: PageProps) {
           <div className="col-md-3">
             <label className="form-label fw-bold small mb-1">ปี พ.ศ.</label>
             <select name="year" defaultValue={buddhistYear} className="form-select form-select-sm">
-              {[currentYearAD - 1, currentYearAD, currentYearAD + 1].map(y => (
+              {[currentYearAD - 2, currentYearAD - 1, currentYearAD, currentYearAD + 1].map(y => (
                 <option key={y} value={y + 543}>{y + 543}</option>
               ))}
             </select>
