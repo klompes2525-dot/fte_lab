@@ -32,16 +32,35 @@ export default async function YearlyReportPage({ searchParams }: PageProps) {
     .select('*')
     .order('id', { ascending: true });
 
-  // 4. ดึงข้อมูลปริมาณงาน daily ตลอดทั้งปี (เพิ่ม .limit(100000) เพื่อแก้ปัญหาโดนตัดที่ 1,000 แถว)
+  // 4. ดึงข้อมูลปริมาณงาน daily ตลอดทั้งปี โดยใช้ Pagination (.range) เพื่อแก้ปัญหาโดนบล็อกที่ 1,000 แถว
   const startDateStr = `${selectedYear}-01-01`;
   const endDateStr = `${selectedYear}-12-31`;
 
-  const { data: yearlyDailyWorkload } = await supabase
-    .from('workload_daily')
-    .select('*')
-    .gte('start_date', startDateStr)
-    .lte('start_date', endDateStr)
-    .limit(100000); // <-- [แก้ไขจุดที่ 1] ป้องกัน Supabase ตัดข้อมูลที่ 1,000 รายการ
+  let yearlyDailyWorkload: any[] = [];
+  let page = 0;
+  const pageSize = 1000;
+  let hasMore = true;
+
+  // วนลูปดึงข้อมูลครั้งละ 1,000 แถวจนกว่าจะหมด
+  while (hasMore) {
+    const { data: chunk, error } = await supabase
+      .from('workload_daily')
+      .select('*')
+      .gte('start_date', startDateStr)
+      .lte('start_date', endDateStr)
+      .range(page * pageSize, (page + 1) * pageSize - 1);
+
+    if (error || !chunk || chunk.length === 0) {
+      hasMore = false;
+    } else {
+      yearlyDailyWorkload = yearlyDailyWorkload.concat(chunk);
+      if (chunk.length < pageSize) {
+        hasMore = false;
+      } else {
+        page++;
+      }
+    }
+  }
 
   // 5. ดึงข้อมูลวันหยุดนักขัตฤกษ์ตลอดทั้งปี
   const { data: holidaysData } = await supabase
@@ -55,11 +74,9 @@ export default async function YearlyReportPage({ searchParams }: PageProps) {
   // จัดกลุ่มข้อมูล ปริมาณงานตาม [hcode][month][volKey]
   const workloadByHospMonth: Record<string, Record<number, Record<string, number>>> = {};
 
-  yearlyDailyWorkload?.forEach(row => {
-    // [แก้ไขจุดที่ 2] Trim ตัดช่องว่าง HCODE
+  yearlyDailyWorkload.forEach(row => {
     const hcode = String(row.hospital_code).trim();
     
-    // [แก้ไขจุดที่ 3] อ่านเดือนโดยตรงจากข้อความ 'YYYY-MM-DD' เพื่อเลี่ยงปัญหา Timezone ชิฟต์
     let month = 0;
     if (row.start_date) {
       const dateParts = String(row.start_date).split(/[-T]/);
@@ -73,7 +90,6 @@ export default async function YearlyReportPage({ searchParams }: PageProps) {
       if (!workloadByHospMonth[hcode][month]) workloadByHospMonth[hcode][month] = {};
 
       Object.keys(row).forEach(key => {
-        // [แก้ไขจุดที่ 4] แปลงค่าเป็น Number รองรับทั้งชนิดข้อมูล number และ string ตัวเลข
         const val = Number(row[key]);
         if (!isNaN(val) && row[key] !== null && row[key] !== '') {
           workloadByHospMonth[hcode][month][key] = (workloadByHospMonth[hcode][month][key] || 0) + val;
