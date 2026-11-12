@@ -138,9 +138,9 @@ export default function ImportWorkloadPage() {
         return;
       }
 
-      const firstKeys = Object.keys(rawJson[0]).map((k) => k.trim());
+      const firstKeys = Object.keys(rawJson[0]).map((k: string) => k.trim());
       const missingCols = ['hospital_code', 'start_date', 'grand_total_workload'].filter(
-        (col) => !firstKeys.includes(col)
+        (col: string) => !firstKeys.includes(col)
       );
       if (missingCols.length > 0) {
         setParseError(
@@ -150,7 +150,7 @@ export default function ImportWorkloadPage() {
       }
 
       const parsedRows: WorkloadRow[] = rawJson
-        .map((r) => {
+        .map((r: Record<string, unknown>): WorkloadRow => {
           const sDate = formatExcelDate(r['start_date']);
           const eDate = formatExcelDate(r['end_date']) || sDate;
           return {
@@ -174,7 +174,7 @@ export default function ImportWorkloadPage() {
             staff_other_mt: toInt(r['staff_other_mt'], 0),
           };
         })
-        .filter((r) => r.hospital_code !== '' && r.start_date !== '');
+        .filter((r: WorkloadRow) => r.hospital_code !== '' && r.start_date !== '');
 
       if (parsedRows.length === 0) {
         setParseError('ไม่พบแถวข้อมูลที่สมบูรณ์ (กรุณาตรวจสอบค่า hospital_code และ start_date)');
@@ -186,7 +186,7 @@ export default function ImportWorkloadPage() {
         return;
       }
 
-      const uniqueHcodes = new Set(parsedRows.map((r) => r.hospital_code));
+      const uniqueHcodes = new Set(parsedRows.map((r: WorkloadRow) => r.hospital_code));
       if (uniqueHcodes.size > 1) {
         setParseError('พบข้อมูลหลายโรงพยาบาลปะปนกันในไฟล์เดียว กรุณาอัปโหลดทีละโรงพยาบาล');
         return;
@@ -266,7 +266,7 @@ export default function ImportWorkloadPage() {
       process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
       'sb_publishable_pInNrBqs1smiMiCbnTTIuw_JsDkndIw';
 
-    const payloadList = rows.map((r) => ({
+    const payloadList = rows.map((r: WorkloadRow) => ({
       hospital_code: r.hospital_code,
       start_date: r.start_date,
       end_date: r.end_date,
@@ -327,7 +327,10 @@ export default function ImportWorkloadPage() {
     }
   };
 
-  const totalGrandWorkload = rows.reduce((acc, r) => acc + r.grand_total_workload, 0);
+  const totalGrandWorkload = rows.reduce(
+    (acc: number, r: WorkloadRow) => acc + r.grand_total_workload,
+    0
+  );
 
   return (
     <div className="container-fluid px-3 py-3" style={{ fontSize: '0.85rem', maxWidth: '1320px' }}>
@@ -507,7 +510,10 @@ export default function ImportWorkloadPage() {
           </div>
           <div className="card-body p-0">
             <div style={{ maxHeight: '420px', overflow: 'auto' }}>
-              <table className="table table-bordered table-hover table-sm mb-0 text-end align-middle" style={{ fontSize: '0.78rem' }}>
+              <table
+                className="table table-bordered table-hover table-sm mb-0 text-end align-middle"
+                style={{ fontSize: '0.78rem' }}
+              >
                 <thead className="table-dark text-center" style={{ position: 'sticky', top: 0, zIndex: 5 }}>
                   <tr>
                     <th>วันที่</th>
@@ -529,7 +535,7 @@ export default function ImportWorkloadPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {rows.map((r, idx) => (
+                  {rows.map((r: WorkloadRow, idx: number) => (
                     <tr key={`${r.start_date}-${idx}`}>
                       <td className="text-center fw-bold">{r.start_date}</td>
                       <td>{r.sample_collection.toLocaleString()}</td>
