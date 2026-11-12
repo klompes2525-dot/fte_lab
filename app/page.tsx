@@ -144,6 +144,9 @@ export default async function Page({ searchParams }: PageProps) {
           ระบบรายงานภาระงานนักเทคนิคการแพทย์
         </h4>
         <div className="d-flex align-items-center gap-1 flex-wrap">
+          <Link href="/import-workload" className="btn btn-primary btn-sm fw-bold py-1 px-2">
+            <i className="fa-solid fa-file-excel me-1"></i> นำเข้าข้อมูล (Excel)
+          </Link>
           <Link href={`/report-productivity?year=${buddhistYear}`} className="btn btn-outline-warning btn-sm text-dark fw-bold py-1 px-2">
             Productivity (%)
           </Link>
