@@ -259,13 +259,6 @@ export default function ImportWorkloadPage() {
       // ignore storage errors
     }
 
-    const supabaseUrl =
-      process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://mriqyjfltiffzmcyhmpv.supabase.co';
-    const supabaseAnonKey =
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
-      process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
-      'sb_publishable_pInNrBqs1smiMiCbnTTIuw_JsDkndIw';
-
     const payloadList = rows.map((r: WorkloadRow) => ({
       hospital_code: r.hospital_code,
       start_date: r.start_date,
@@ -291,11 +284,9 @@ export default function ImportWorkloadPage() {
 
     setIsSubmitting(true);
     try {
-      const response = await fetch(`${supabaseUrl.replace(/\/$/, '')}/functions/v1/submit-workload`, {
+      const response = await fetch('/api/import-workload', {
         method: 'POST',
         headers: {
-          Authorization: `Bearer ${supabaseAnonKey}`,
-          apikey: supabaseAnonKey,
           'x-api-token': apiToken.trim(),
           'x-secret-key': secretKey.trim(),
           'Content-Type': 'application/json',
