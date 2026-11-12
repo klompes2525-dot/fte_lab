@@ -181,7 +181,7 @@ export default function ImportWorkloadPage() {
         return;
       }
 
-      if (parsedRows.length > 366) {
+      if (parsedRows.length > 3660) {
         setParseError(`จำนวนข้อมูลเกินกำหนด (${parsedRows.length} วัน) สูงสุดไม่เกิน 366 วันต่อครั้ง`);
         return;
       }

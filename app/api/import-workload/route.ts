@@ -104,31 +104,35 @@ export async function POST(req: NextRequest) {
       };
     });
 
-    const targetDates = rowsToInsert.map((r) => r.start_date);
+    // 3. แบ่งชุดข้อมูลทีละ 300 วัน เพื่อป้องกัน URL ยาวเกินกำหนดของ Supabase เมื่ออัปโหลดหลายปี
+    const CHUNK_SIZE = 300;
+    for (let i = 0; i < rowsToInsert.length; i += CHUNK_SIZE) {
+      const chunk = rowsToInsert.slice(i, i + CHUNK_SIZE);
+      const chunkDates = chunk.map((r) => r.start_date);
 
-    // 3. ลบข้อมูลเก่าของวันที่ซ้ำ (ถ้ามี) แล้วบันทึกข้อมูลใหม่เข้าไปแทน
-    const { error: delError } = await supabase
-      .from('workload_daily')
-      .delete()
-      .eq('hospital_code', hospitalCode)
-      .in('start_date', targetDates);
+      const { error: delError } = await supabase
+        .from('workload_daily')
+        .delete()
+        .eq('hospital_code', hospitalCode)
+        .in('start_date', chunkDates);
 
-    if (delError) {
-      return NextResponse.json(
-        { error: `ไม่สามารถอัปเดตข้อมูลเดิมได้ (RLS/Delete): ${delError.message}` },
-        { status: 500 }
-      );
-    }
+      if (delError) {
+        return NextResponse.json(
+          { error: `ไม่สามารถอัปเดตข้อมูลเดิมได้ (RLS/Delete): ${delError.message}` },
+          { status: 500 }
+        );
+      }
 
-    const { error: insertError } = await supabase
-      .from('workload_daily')
-      .insert(rowsToInsert);
+      const { error: insertError } = await supabase
+        .from('workload_daily')
+        .insert(chunk);
 
-    if (insertError) {
-      return NextResponse.json(
-        { error: `บันทึกข้อมูลลงตาราง workload_daily ไม่สำเร็จ: ${insertError.message}` },
-        { status: 500 }
-      );
+      if (insertError) {
+        return NextResponse.json(
+          { error: `บันทึกข้อมูลลงตาราง workload_daily ไม่สำเร็จ: ${insertError.message}` },
+          { status: 500 }
+        );
+      }
     }
 
     return NextResponse.json({
