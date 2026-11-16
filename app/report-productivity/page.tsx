@@ -15,16 +15,29 @@ const THAI_MONTHS_SHORT = [
   'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'
 ];
 
+// ลำดับเดือนตามปีงบประมาณ (ต.ค. - ก.ย.)
+const FISCAL_MONTHS = [10, 11, 12, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+
 export default async function ReportProductivityPage({ searchParams }: PageProps) {
   const params = await searchParams;
   const today = new Date();
   const currentYearAD = today.getFullYear();
   const currentMonth = today.getMonth() + 1; // เดือนปัจจุบัน (1-12)
 
-  const inputYear = params.year ? parseInt(params.year) : currentYearAD + 543;
+  // ปีงบประมาณปัจจุบัน (หากเป็นเดือน ต.ค.-ธ.ค. จะนับเป็นปีงบประมาณของปีถัดไป)
+  const currentFiscalYearAD = currentMonth >= 10 ? currentYearAD + 1 : currentYearAD;
+  const currentFiscalYearBE = currentFiscalYearAD + 543;
 
+  const parsedYear = params.year ? parseInt(params.year, 10) : NaN;
+  const inputYear = !isNaN(parsedYear) ? parsedYear : currentFiscalYearBE;
+
+  // adYear และ buddhistYear คือปีหลักของปีงบประมาณ (เช่น ปีงบ 2569 -> adYear = 2026, buddhistYear = 2569)
   const adYear = inputYear > 2400 ? inputYear - 543 : inputYear;
   const buddhistYear = inputYear > 2400 ? inputYear : inputYear + 543;
+  const prevAdYear = adYear - 1;
+
+  // ฟังก์ชันคืนค่าปี ค.ศ. จริงของแต่ละเดือนในปีงบประมาณ (ต.ค.-ธ.ค. = adYear - 1, ม.ค.-ก.ย. = adYear)
+  const getMonthAdYear = (m: number) => (m >= 10 ? prevAdYear : adYear);
 
   // 1. ดึงรายชื่อโรงพยาบาลทั้งหมดที่เปิดใช้งาน
   const { data: hospitalsData } = await supabase
@@ -43,9 +56,9 @@ export default async function ReportProductivityPage({ searchParams }: PageProps
 
   const activities = activitiesData || [];
 
-  // 3. ดึงวันหยุดประจำปี
-  const startDateStr = `${adYear}-01-01`;
-  const endDateStr = `${adYear}-12-31`;
+  // 3. ดึงวันหยุดประจำปีงบประมาณ (1 ต.ค. ปีก่อนหน้า - 30 ก.ย. ปีงบประมาณ)
+  const startDateStr = `${prevAdYear}-10-01`;
+  const endDateStr = `${adYear}-09-30`;
 
   const { data: holidaysData } = await supabase
     .from('holidays')
@@ -55,25 +68,26 @@ export default async function ReportProductivityPage({ searchParams }: PageProps
 
   const holidaysList = holidaysData || [];
 
-  // คำนวณชั่วโมงทำงานมาตรฐานประจำเดือน (1-12)
+  // คำนวณชั่วโมงทำงานมาตรฐานประจำเดือน (1-12) ตามปี ค.ศ. จริงของเดือนนั้นๆ
   const monthlyStdHours: Record<number, number> = {};
-  for (let m = 1; m <= 12; m++) {
-    const daysInMonth = new Date(adYear, m, 0).getDate();
+  for (const m of FISCAL_MONTHS) {
+    const targetAdYear = getMonthAdYear(m);
+    const daysInMonth = new Date(targetAdYear, m, 0).getDate();
     const holidayMap = new Set<string>();
 
     holidaysList.forEach((h: { holiday_date: string }) => {
       if (h.holiday_date) {
         const hDate = new Date(h.holiday_date);
-        if (hDate.getFullYear() === adYear && hDate.getMonth() + 1 === m) {
-          holidayMap.add(h.holiday_date);
+        if (hDate.getFullYear() === targetAdYear && hDate.getMonth() + 1 === m) {
+          holidayMap.add(h.holiday_date.slice(0, 10));
         }
       }
     });
 
     for (let d = 1; d <= daysInMonth; d++) {
-      const dayOfWeek = new Date(adYear, m - 1, d).getDay(); // 0 = อาทิตย์, 6 = เสาร์
+      const dayOfWeek = new Date(targetAdYear, m - 1, d).getDay(); // 0 = อาทิตย์, 6 = เสาร์
       if (dayOfWeek === 0 || dayOfWeek === 6) {
-        const dStr = `${adYear}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+        const dStr = `${targetAdYear}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
         holidayMap.add(dStr);
       }
     }
@@ -82,7 +96,7 @@ export default async function ReportProductivityPage({ searchParams }: PageProps
     monthlyStdHours[m] = wDays * 7;
   }
 
-  // 4. ดึงข้อมูลภาระงานรายวันของทั้งปี โดยใช้ Pagination (.range Loop) เพื่อปลดล็อกลิมิต 1,000 แถวของ Supabase
+  // 4. ดึงข้อมูลภาระงานรายวันของทั้งปีงบประมาณ โดยใช้ Pagination (.range Loop)
   let rawWorkload: any[] = [];
   let page = 0;
   const pageSize = 1000;
@@ -119,7 +133,7 @@ export default async function ReportProductivityPage({ searchParams }: PageProps
 
   (rawWorkload || []).forEach((row: any) => {
     const hc = String(row.hospital_code).trim();
-    
+
     // แกะเดือนตรงๆ จากสตริงวันที่เพื่อป้องกันปัญหา Timezone บน Server ชิฟต์เดือน
     let workMonth = 0;
     if (row.start_date) {
@@ -182,7 +196,7 @@ export default async function ReportProductivityPage({ searchParams }: PageProps
     if (!hasDataMatrix[hc]) hasDataMatrix[hc] = {};
     if (!isCompleteMonthMatrix[hc]) isCompleteMonthMatrix[hc] = {};
 
-    for (let m = 1; m <= 12; m++) {
+    for (const m of FISCAL_MONTHS) {
       const vData = workloadMatrix[hc]?.[m];
       if (!vData) {
         productivityMatrix[hc][m] = 0;
@@ -224,11 +238,12 @@ export default async function ReportProductivityPage({ searchParams }: PageProps
 
       productivityMatrix[hc][m] = prod;
 
-      // ตรวจสอบความสมบูรณ์ของเดือน (ต้องเป็นเดือนที่ผ่านไปแล้ว + มีวันที่ลงข้อมูลครบตามจำนวนวันในเดือนนั้น)
-      const totalDaysInMonth = new Date(adYear, m, 0).getDate();
+      // ตรวจสอบความสมบูรณ์ของเดือนตามปี ค.ศ. จริงของเดือนนั้นๆ
+      const targetAdYear = getMonthAdYear(m);
+      const totalDaysInMonth = new Date(targetAdYear, m, 0).getDate();
       const recordedDaysCount = recordedDaysMatrix[hc]?.[m]?.size || 0;
 
-      const isPastMonth = adYear < currentYearAD || (adYear === currentYearAD && m < currentMonth);
+      const isPastMonth = targetAdYear < currentYearAD || (targetAdYear === currentYearAD && m < currentMonth);
       const isFullMonthData = recordedDaysCount >= totalDaysInMonth;
 
       isCompleteMonthMatrix[hc][m] = isPastMonth && isFullMonthData;
@@ -238,15 +253,23 @@ export default async function ReportProductivityPage({ searchParams }: PageProps
   // ตัวแปรสำหรับคำนวณสรุปรวมท้ายตาราง
   const monthProdSums: Record<number, number> = {};
   const monthHospCounts: Record<number, number> = {};
-  for (let m = 1; m <= 12; m++) {
+  for (const m of FISCAL_MONTHS) {
     monthProdSums[m] = 0;
     monthHospCounts[m] = 0;
   }
   const allHospAvgProds: number[] = [];
 
-  const currY = currentYearAD + 543;
-  // เพิ่มตัวเลือกปีย้อนหลังให้ครอบคลุม 2567 (currY - 2) จนถึง 2570 (currY + 1)
-  const yearsList = [currY - 2, currY - 1, currY, currY + 1];
+  // ตัวเลือกปีงบประมาณครอบคลุมย้อนหลังถึง 2567 และล่วงหน้า 1 ปีงบประมาณ
+  const yearsList = [
+    currentFiscalYearBE - 3,
+    currentFiscalYearBE - 2,
+    currentFiscalYearBE - 1,
+    currentFiscalYearBE,
+    currentFiscalYearBE + 1,
+  ];
+
+  const prevBeShort = String(buddhistYear - 1).slice(-2);
+  const currBeShort = String(buddhistYear).slice(-2);
 
   return (
     <div className="container-fluid px-3 py-3" style={{ fontSize: '0.8rem' }}>
@@ -269,14 +292,16 @@ export default async function ReportProductivityPage({ searchParams }: PageProps
         </div>
       </div>
 
-      {/* ตัวกรอง ปี พ.ศ. */}
+      {/* ตัวกรอง ปีงบประมาณ พ.ศ. */}
       <div className="card mb-3 p-2 shadow-sm border-0">
         <form method="GET" className="row g-2 align-items-end">
           <div className="col-auto">
-            <label className="form-label fw-bold small mb-1">เลือกปี พ.ศ.</label>
-            <select name="year" defaultValue={buddhistYear} className="form-select form-select-sm" style={{ width: '140px' }}>
+            <label className="form-label fw-bold small mb-1">เลือกปีงบประมาณ (พ.ศ.)</label>
+            <select name="year" defaultValue={buddhistYear} className="form-select form-select-sm" style={{ width: '215px' }}>
               {yearsList.map((y) => (
-                <option key={y} value={y}>{y}</option>
+                <option key={y} value={y}>
+                  ปีงบ {y} (ต.ค. {String(y - 1).slice(-2)} - ก.ย. {String(y).slice(-2)})
+                </option>
               ))}
             </select>
           </div>
@@ -292,7 +317,7 @@ export default async function ReportProductivityPage({ searchParams }: PageProps
       <div className="card border-0 shadow-sm">
         <div className="card-header bg-white py-2 d-flex justify-content-between align-items-center flex-wrap gap-2">
           <h6 className="m-0 text-dark fw-bold">
-            ตารางแสดงผลิตภาพ Productivity (%) ประจำปี พ.ศ. {buddhistYear}
+            ตารางแสดงผลิตภาพ Productivity (%) ประจำปีงบประมาณ พ.ศ. {buddhistYear} (ต.ค. {prevBeShort} - ก.ย. {currBeShort})
           </h6>
           <div className="d-flex gap-2 align-items-center flex-wrap" style={{ fontSize: '13px' }}>
             <span className="badge bg-danger px-2 py-1.5" style={{ fontSize: '12.5px' }}>&gt; 100% (งานเกินกำลัง)</span>
@@ -395,24 +420,27 @@ export default async function ReportProductivityPage({ searchParams }: PageProps
                     ระดับ
                   </th>
 
-                  {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
-                    <th
-                      key={m}
-                      style={{
-                        position: 'sticky',
-                        top: 0,
-                        zIndex: 10,
-                        backgroundColor: '#0f172a',
-                        color: '#ffffff',
-                        minWidth: '65px',
-                        borderBottom: '1px solid #334155',
-                        borderRight: '1px solid #334155',
-                        padding: '6px 2px',
-                      }}
-                    >
-                      {THAI_MONTHS_SHORT[m]}
-                    </th>
-                  ))}
+                  {FISCAL_MONTHS.map((m) => {
+                    const monthBeShort = String(getMonthAdYear(m) + 543).slice(-2);
+                    return (
+                      <th
+                        key={m}
+                        style={{
+                          position: 'sticky',
+                          top: 0,
+                          zIndex: 10,
+                          backgroundColor: '#0f172a',
+                          color: '#ffffff',
+                          minWidth: '68px',
+                          borderBottom: '1px solid #334155',
+                          borderRight: '1px solid #334155',
+                          padding: '6px 2px',
+                        }}
+                      >
+                        {THAI_MONTHS_SHORT[m]} {monthBeShort}
+                      </th>
+                    );
+                  })}
 
                   <th
                     style={{
@@ -497,7 +525,7 @@ export default async function ReportProductivityPage({ searchParams }: PageProps
                         <span className="badge bg-info text-dark" style={{ fontSize: '10px' }}>{h.hospital_level}</span>
                       </td>
 
-                      {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => {
+                      {FISCAL_MONTHS.map((m) => {
                         const prod = productivityMatrix[hc]?.[m] || 0;
                         const staffM = actualStaffMatrix[hc]?.[m] || 0;
                         const hasData = hasDataMatrix[hc]?.[m] || false;
@@ -607,7 +635,7 @@ export default async function ReportProductivityPage({ searchParams }: PageProps
                     Productivity เฉลี่ยรวมทุก รพ.:
                   </td>
 
-                  {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => {
+                  {FISCAL_MONTHS.map((m) => {
                     const mAvgProd = monthHospCounts[m] > 0
                       ? monthProdSums[m] / monthHospCounts[m]
                       : 0;
