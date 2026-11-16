@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
-import { LEVEL_COLUMN_MAP, THAI_MONTHS, calculateWorkingDays } from '@/lib/fte-utils';
+import { LEVEL_COLUMN_MAP, calculateWorkingDays } from '@/lib/fte-utils';
 
 export const revalidate = 0;
 
@@ -10,14 +10,44 @@ interface PageProps {
   }>;
 }
 
+const THAI_MONTH_FULL: Record<number, string> = {
+  1: 'มกราคม',
+  2: 'กุมภาพันธ์',
+  3: 'มีนาคม',
+  4: 'เมษายน',
+  5: 'พฤษภาคม',
+  6: 'มิถุนายน',
+  7: 'กรกฎาคม',
+  8: 'สิงหาคม',
+  9: 'กันยายน',
+  10: 'ตุลาคม',
+  11: 'พฤศจิกายน',
+  12: 'ธันวาคม',
+};
+
+// ลำดับเดือนตามปีงบประมาณ (ต.ค. - ก.ย.)
+const FISCAL_MONTHS = [10, 11, 12, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+
 export default async function YearlyReportPage({ searchParams }: PageProps) {
   const params = await searchParams;
-  const currentYearAD = new Date().getFullYear();
-  
-  // 1. จัดการปี พ.ศ. / ค.ศ.
-  let selectedYear = params.year ? parseInt(params.year) : currentYearAD;
+  const today = new Date();
+  const currentYearAD = today.getFullYear();
+  const currentMonth = today.getMonth() + 1;
+
+  // ปีงบประมาณปัจจุบัน (หากเป็นเดือน ต.ค.-ธ.ค. จะนับเป็นปีงบประมาณของปีถัดไป)
+  const defaultFiscalYearAD = currentMonth >= 10 ? currentYearAD + 1 : currentYearAD;
+  const defaultFiscalYearBE = defaultFiscalYearAD + 543;
+
+  // 1. จัดการปี พ.ศ. / ค.ศ. ของปีงบประมาณที่เลือก
+  const parsedYear = params.year ? parseInt(params.year, 10) : NaN;
+  let selectedYear = !isNaN(parsedYear) ? parsedYear : defaultFiscalYearAD;
   if (selectedYear > 2400) selectedYear -= 543;
+
   const buddhistYear = selectedYear + 543;
+  const prevAdYear = selectedYear - 1;
+
+  // คืนค่าปี ค.ศ. จริงของแต่ละเดือนในปีงบประมาณ (ต.ค.-ธ.ค. = ปีก่อนหน้า, ม.ค.-ก.ย. = ปีงบประมาณ)
+  const getMonthAdYear = (m: number) => (m >= 10 ? prevAdYear : selectedYear);
 
   // 2. ดึงรายชื่อโรงพยาบาลทั้งหมด พร้อมคอลัมน์ fte_lab
   const { data: hospitals } = await supabase
@@ -32,9 +62,9 @@ export default async function YearlyReportPage({ searchParams }: PageProps) {
     .select('*')
     .order('id', { ascending: true });
 
-  // 4. ดึงข้อมูลปริมาณงาน daily ตลอดทั้งปี โดยใช้ Pagination (.range) เพื่อปลดล็อกลิมิต 1,000 แถว
-  const startDateStr = `${selectedYear}-01-01`;
-  const endDateStr = `${selectedYear}-12-31`;
+  // 4. ดึงข้อมูลปริมาณงาน daily ตลอดปีงบประมาณ (1 ต.ค. ปีก่อนหน้า - 30 ก.ย. ปีงบประมาณ)
+  const startDateStr = `${prevAdYear}-10-01`;
+  const endDateStr = `${selectedYear}-09-30`;
 
   let yearlyDailyWorkload: any[] = [];
   let page = 0;
@@ -61,23 +91,23 @@ export default async function YearlyReportPage({ searchParams }: PageProps) {
     }
   }
 
-  // 5. ดึงข้อมูลวันหยุดนักขัตฤกษ์ตลอดทั้งปี
+  // 5. ดึงข้อมูลวันหยุดนักขัตฤกษ์ตลอดปีงบประมาณ
   const { data: holidaysData } = await supabase
     .from('holidays')
     .select('holiday_date')
     .gte('holiday_date', startDateStr)
     .lte('holiday_date', endDateStr);
 
-  const holidayList = (holidaysData || []).map(h => h.holiday_date);
-  const holidaySet = new Set(holidayList.map(d => String(d).split('T')[0].trim()));
+  const holidayList = (holidaysData || []).map((h) => h.holiday_date);
+  const holidaySet = new Set(holidayList.map((d) => String(d).split('T')[0].trim()));
 
   // จัดกลุ่มข้อมูล ปริมาณงานตาม [hcode][month][volKey] และคำนวณค่าเฉลี่ยเจ้าหน้าที่ปฏิบัติงานจริง (staff_mt) เฉพาะวันทำการ
   const workloadByHospMonth: Record<string, Record<number, Record<string, number>>> = {};
   const staffStatsByHosp: Record<string, { sum: number; count: number }> = {};
 
-  yearlyDailyWorkload.forEach(row => {
+  yearlyDailyWorkload.forEach((row) => {
     const hcode = String(row.hospital_code).trim();
-    
+
     let month = 0;
     if (row.start_date) {
       const dateOnly = String(row.start_date).split('T')[0].trim();
@@ -116,7 +146,7 @@ export default async function YearlyReportPage({ searchParams }: PageProps) {
       if (!workloadByHospMonth[hcode]) workloadByHospMonth[hcode] = {};
       if (!workloadByHospMonth[hcode][month]) workloadByHospMonth[hcode][month] = {};
 
-      Object.keys(row).forEach(key => {
+      Object.keys(row).forEach((key) => {
         const val = Number(row[key]);
         if (!isNaN(val) && row[key] !== null && row[key] !== '') {
           workloadByHospMonth[hcode][month][key] = (workloadByHospMonth[hcode][month][key] || 0) + val;
@@ -127,25 +157,26 @@ export default async function YearlyReportPage({ searchParams }: PageProps) {
 
   // คำนวณค่าเฉลี่ยเจ้าหน้าที่ปฏิบัติงานจริงรายโรงพยาบาล (ปัดเป็นจำนวนเต็ม)
   const actualStaffByHosp: Record<string, number | null> = {};
-  (hospitals || []).forEach(h => {
+  (hospitals || []).forEach((h) => {
     const hcode = String(h.hcode).trim();
     const stat = staffStatsByHosp[hcode];
     actualStaffByHosp[hcode] = stat && stat.count > 0 ? Math.round(stat.sum / stat.count) : null;
   });
 
-  // คำนวณชั่วโมงมาตรฐานประจำแต่ละเดือน (1-12)
+  // คำนวณชั่วโมงมาตรฐานประจำแต่ละเดือนตามปี ค.ศ. จริงของเดือนนั้นๆ
   const monthlyWorkingHours: Record<number, number> = {};
-  for (let m = 1; m <= 12; m++) {
-    const { workingDays } = calculateWorkingDays(selectedYear, m, holidayList);
+  for (const m of FISCAL_MONTHS) {
+    const targetAdYear = getMonthAdYear(m);
+    const { workingDays } = calculateWorkingDays(targetAdYear, m, holidayList);
     monthlyWorkingHours[m] = workingDays * 7;
   }
 
   // คำนวณ FTE แต่ละโรงพยาบาลในแต่ละเดือน
   const fteMatrix: Record<string, Record<number, number>> = {};
   const monthTotalFTE: Record<number, number> = {};
-  for (let m = 1; m <= 12; m++) monthTotalFTE[m] = 0;
+  for (const m of FISCAL_MONTHS) monthTotalFTE[m] = 0;
 
-  (hospitals || []).forEach(h => {
+  (hospitals || []).forEach((h) => {
     const hcode = String(h.hcode).trim();
     fteMatrix[hcode] = {};
 
@@ -153,12 +184,15 @@ export default async function YearlyReportPage({ searchParams }: PageProps) {
     const levelKey = hLevel.toLowerCase().trim();
     const stdTimeCol = LEVEL_COLUMN_MAP[hLevel] || LEVEL_COLUMN_MAP[levelKey] || `hospital_${levelKey}`;
 
-    for (let m = 1; m <= 12; m++) {
+    for (const m of FISCAL_MONTHS) {
       const sums = workloadByHospMonth[hcode]?.[m] || {};
-      const hasSubItemsVolume = (sums['blood_bank_prep'] || 0) > 0 || (sums['blood_bank_donation'] || 0) > 0 || (sums['blood_bank_nat_cert'] || 0) > 0;
+      const hasSubItemsVolume =
+        (sums['blood_bank_prep'] || 0) > 0 ||
+        (sums['blood_bank_donation'] || 0) > 0 ||
+        (sums['blood_bank_nat_cert'] || 0) > 0;
 
       let grandTotalMinutes = 0;
-      (activities || []).forEach(act => {
+      (activities || []).forEach((act) => {
         const actId = act.id;
         let volKey = '';
         switch (actId) {
@@ -206,8 +240,16 @@ export default async function YearlyReportPage({ searchParams }: PageProps) {
     return sum + (actualStaffByHosp[hcode] || 0);
   }, 0);
 
-  const currY = currentYearAD + 543;
-  const yearsList = [currY - 2, currY - 1, currY, currY + 1];
+  const yearsList = [
+    defaultFiscalYearBE - 3,
+    defaultFiscalYearBE - 2,
+    defaultFiscalYearBE - 1,
+    defaultFiscalYearBE,
+    defaultFiscalYearBE + 1,
+  ];
+
+  const prevBeShort = String(buddhistYear - 1).slice(-2);
+  const currBeShort = String(buddhistYear).slice(-2);
 
   return (
     <div className="container-fluid px-3 py-2 d-flex flex-column" style={{ fontSize: '0.8rem', minHeight: '100vh' }}>
@@ -218,19 +260,21 @@ export default async function YearlyReportPage({ searchParams }: PageProps) {
       <div className="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
         <h4 className="m-0 fw-bold text-dark fs-5">
           <i className="fa-solid fa-chart-line text-success me-2"></i>
-          สรุปกรอบอัตรากำลัง FTE รายปี (ทุกโรงพยาบาล)
+          สรุปกรอบอัตรากำลัง FTE รายปีงบประมาณ (ทุกโรงพยาบาล)
         </h4>
         <div className="d-flex align-items-center gap-2">
           <form method="GET" className="d-flex align-items-center gap-2">
-            <label className="fw-bold small mb-0">เลือกปี พ.ศ.:</label>
-            <select 
-              name="year" 
-              defaultValue={buddhistYear} 
+            <label className="fw-bold small mb-0">เลือกปีงบประมาณ:</label>
+            <select
+              name="year"
+              defaultValue={buddhistYear}
               className="form-select form-select-sm"
-              style={{ width: '110px' }}
+              style={{ width: '215px' }}
             >
-              {yearsList.map(y => (
-                <option key={y} value={y}>{y}</option>
+              {yearsList.map((y) => (
+                <option key={y} value={y}>
+                  ปีงบ {y} (ต.ค. {String(y - 1).slice(-2)} - ก.ย. {String(y).slice(-2)})
+                </option>
               ))}
             </select>
             <button type="submit" className="btn btn-primary btn-sm fw-bold">กรอง</button>
@@ -252,7 +296,7 @@ export default async function YearlyReportPage({ searchParams }: PageProps) {
           </div>
           <div className="col-md-3">
             <div className="card p-2 border-0 shadow-sm border-start border-4 border-success bg-white">
-              <div className="text-muted small fw-bold">รวม FTE ทุก รพ. ตลอดทั้งปี</div>
+              <div className="text-muted small fw-bold">รวม FTE ทุก รพ. ตลอดทั้งปีงบประมาณ</div>
               <div className="fs-5 fw-bold text-success">{grandTotalYearFTE.toFixed(2)} คน-เดือน</div>
             </div>
           </div>
@@ -264,8 +308,13 @@ export default async function YearlyReportPage({ searchParams }: PageProps) {
           </div>
           <div className="col-md-3">
             <div className="card p-2 border-0 shadow-sm border-start border-4 bg-white" style={{ borderColor: '#8b5cf6' }}>
-              <div className="text-muted small fw-bold">ปีงบประมาณ / พ.ศ.</div>
-              <div className="fs-5 fw-bold" style={{ color: '#8b5cf6' }}>{buddhistYear}</div>
+              <div className="text-muted small fw-bold">ปีงบประมาณ (พ.ศ.)</div>
+              <div className="fs-5 fw-bold" style={{ color: '#8b5cf6' }}>
+                {buddhistYear}{' '}
+                <span className="fs-6 fw-normal text-muted">
+                  (ต.ค. {prevBeShort} - ก.ย. {currBeShort})
+                </span>
+              </div>
             </div>
           </div>
         </div>
@@ -288,16 +337,18 @@ export default async function YearlyReportPage({ searchParams }: PageProps) {
                   <th className="sticky-head-top text-center bg-secondary text-white" style={{ width: '90px' }}>
                     กรอบ FTE
                   </th>
-                  {/* เพิ่มคอลัมน์ จำนวนเจ้าหน้าที่ปฏิบัติงานจริง ต่อจาก กรอบ FTE */}
                   <th className="sticky-head-top text-center bg-info text-dark" style={{ width: '115px' }}>
                     จนท.ปฏิบัติงานจริง
                   </th>
-                  
-                  {Object.values(THAI_MONTHS).map((mName) => (
-                    <th key={mName} className="sticky-head-top text-center" style={{ width: '75px' }}>
-                      {mName}
-                    </th>
-                  ))}
+
+                  {FISCAL_MONTHS.map((m) => {
+                    const monthBeShort = String(getMonthAdYear(m) + 543).slice(-2);
+                    return (
+                      <th key={m} className="sticky-head-top text-center" style={{ width: '85px' }}>
+                        {THAI_MONTH_FULL[m]} {monthBeShort}
+                      </th>
+                    );
+                  })}
                   <th className="sticky-head-top text-center bg-primary text-white" style={{ width: '95px' }}>
                     เฉลี่ย FTE/ปี
                   </th>
@@ -334,7 +385,7 @@ export default async function YearlyReportPage({ searchParams }: PageProps) {
                         {actualStaffVal !== null ? actualStaffVal : '-'}
                       </td>
 
-                      {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => {
+                      {FISCAL_MONTHS.map((m) => {
                         const val = fteMatrix[hcode]?.[m] || 0;
                         hospYearFTE += val;
                         return (
@@ -370,12 +421,12 @@ export default async function YearlyReportPage({ searchParams }: PageProps) {
                     {totalActualStaff > 0 ? totalActualStaff : '-'}
                   </td>
 
-                  {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
+                  {FISCAL_MONTHS.map((m) => (
                     <td key={m} className="text-end text-success fw-bold">
                       {(monthTotalFTE[m] || 0).toFixed(2)}
                     </td>
                   ))}
-                  
+
                   <td className="text-end text-primary bg-light fw-bold">
                     {grandTotalYearFTE.toFixed(2)}
                   </td>
