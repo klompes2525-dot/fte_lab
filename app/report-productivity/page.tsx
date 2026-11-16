@@ -286,9 +286,6 @@ export default async function ReportProductivityPage({ searchParams }: PageProps
           <Link href={`/?year=${buddhistYear}`} className="btn btn-outline-secondary btn-sm fw-bold">
             <i className="fa-solid fa-arrow-left me-1"></i> หน้าหลัก (คำนวณ FTE)
           </Link>
-          <Link href={`/report-fte-monthly?year=${buddhistYear}`} className="btn btn-primary btn-sm fw-bold">
-            <i className="fa-solid fa-users-gear me-1"></i> รายงานกรอบอัตรากำลัง (FTE)
-          </Link>
         </div>
       </div>
 
