@@ -1,0 +1,336 @@
+import Link from 'next/link';
+import { supabase } from '@/lib/supabase';
+import { LEVEL_COLUMN_MAP, THAI_MONTHS, calculateWorkingDays } from '@/lib/fte-utils';
+
+export const revalidate = 0;
+
+interface PageProps {
+  searchParams: Promise<{
+    year?: string;
+  }>;
+}
+
+export default async function YearlyReportPage({ searchParams }: PageProps) {
+  const params = await searchParams;
+  const currentYearAD = new Date().getFullYear();
+  
+  // 1. จัดการปี พ.ศ. / ค.ศ.
+  let selectedYear = params.year ? parseInt(params.year) : currentYearAD;
+  if (selectedYear > 2400) selectedYear -= 543;
+  const buddhistYear = selectedYear + 543;
+
+  // 2. ดึงรายชื่อโรงพยาบาลทั้งหมด พร้อมคอลัมน์ fte_lab
+  const { data: hospitals } = await supabase
+    .from('hospitals')
+    .select('hcode, hname, hospital_level, fte_lab')
+    .eq('is_active', 1)
+    .order('hcode', { ascending: true });
+
+  // 3. ดึงรายการกิจกรรมเวลามาตรฐาน
+  const { data: activities } = await supabase
+    .from('medical_tech_workload')
+    .select('*')
+    .order('id', { ascending: true });
+
+  // 4. ดึงข้อมูลปริมาณงาน daily ตลอดทั้งปี โดยใช้ Pagination (.range) เพื่อปลดล็อกลิมิต 1,000 แถว
+  const startDateStr = `${selectedYear}-01-01`;
+  const endDateStr = `${selectedYear}-12-31`;
+
+  let yearlyDailyWorkload: any[] = [];
+  let page = 0;
+  const pageSize = 1000;
+  let hasMore = true;
+
+  while (hasMore) {
+    const { data: chunk, error } = await supabase
+      .from('workload_daily')
+      .select('*')
+      .gte('start_date', startDateStr)
+      .lte('start_date', endDateStr)
+      .range(page * pageSize, (page + 1) * pageSize - 1);
+
+    if (error || !chunk || chunk.length === 0) {
+      hasMore = false;
+    } else {
+      yearlyDailyWorkload = yearlyDailyWorkload.concat(chunk);
+      if (chunk.length < pageSize) {
+        hasMore = false;
+      } else {
+        page++;
+      }
+    }
+  }
+
+  // 5. ดึงข้อมูลวันหยุดนักขัตฤกษ์ตลอดทั้งปี
+  const { data: holidaysData } = await supabase
+    .from('holidays')
+    .select('holiday_date')
+    .gte('holiday_date', startDateStr)
+    .lte('holiday_date', endDateStr);
+
+  const holidayList = (holidaysData || []).map(h => h.holiday_date);
+
+  // จัดกลุ่มข้อมูล ปริมาณงานตาม [hcode][month][volKey]
+  const workloadByHospMonth: Record<string, Record<number, Record<string, number>>> = {};
+
+  yearlyDailyWorkload.forEach(row => {
+    const hcode = String(row.hospital_code).trim();
+    
+    let month = 0;
+    if (row.start_date) {
+      const dateParts = String(row.start_date).split(/[-T]/);
+      if (dateParts.length >= 2) {
+        month = parseInt(dateParts[1], 10);
+      }
+    }
+
+    if (month >= 1 && month <= 12) {
+      if (!workloadByHospMonth[hcode]) workloadByHospMonth[hcode] = {};
+      if (!workloadByHospMonth[hcode][month]) workloadByHospMonth[hcode][month] = {};
+
+      Object.keys(row).forEach(key => {
+        const val = Number(row[key]);
+        if (!isNaN(val) && row[key] !== null && row[key] !== '') {
+          workloadByHospMonth[hcode][month][key] = (workloadByHospMonth[hcode][month][key] || 0) + val;
+        }
+      });
+    }
+  });
+
+  // คำนวณชั่วโมงมาตรฐานประจำแต่ละเดือน (1-12)
+  const monthlyWorkingHours: Record<number, number> = {};
+  for (let m = 1; m <= 12; m++) {
+    const { workingDays } = calculateWorkingDays(selectedYear, m, holidayList);
+    monthlyWorkingHours[m] = workingDays * 7;
+  }
+
+  // คำนวณ FTE แต่ละโรงพยาบาลในแต่ละเดือน
+  const fteMatrix: Record<string, Record<number, number>> = {};
+  const monthTotalFTE: Record<number, number> = {};
+  for (let m = 1; m <= 12; m++) monthTotalFTE[m] = 0;
+
+  (hospitals || []).forEach(h => {
+    const hcode = String(h.hcode).trim();
+    fteMatrix[hcode] = {};
+
+    const hLevel = h.hospital_level || 'F2';
+    const levelKey = hLevel.toLowerCase().trim();
+    const stdTimeCol = LEVEL_COLUMN_MAP[hLevel] || LEVEL_COLUMN_MAP[levelKey] || `hospital_${levelKey}`;
+
+    for (let m = 1; m <= 12; m++) {
+      const sums = workloadByHospMonth[hcode]?.[m] || {};
+      const hasSubItemsVolume = (sums['blood_bank_prep'] || 0) > 0 || (sums['blood_bank_donation'] || 0) > 0 || (sums['blood_bank_nat_cert'] || 0) > 0;
+
+      let grandTotalMinutes = 0;
+      (activities || []).forEach(act => {
+        const actId = act.id;
+        let volKey = '';
+        switch (actId) {
+          case 1: volKey = 'sample_collection'; break;
+          case 2: volKey = 'hematology'; break;
+          case 3: volKey = 'clinical_microscopy'; break;
+          case 4: volKey = 'clinical_chemistry'; break;
+          case 5: volKey = 'clinical_immunology'; break;
+          case 6: volKey = 'clinical_microbiology'; break;
+          case 7: volKey = 'molecular_biology'; break;
+          case 8: volKey = 'blood_bank_no_nat'; break;
+          case 9: volKey = 'blood_bank_has_nat'; break;
+          case 10: volKey = 'blood_bank_prep'; break;
+          case 11: volKey = 'blood_bank_donation'; break;
+          case 12: volKey = 'blood_bank_nat_cert'; break;
+        }
+
+        const volume = sums[volKey] || 0;
+        const stdTime = Number(act[stdTimeCol]) || 0;
+        const isSubCheck = (actId === 8 || actId === 9) && hasSubItemsVolume;
+        if (!isSubCheck) {
+          grandTotalMinutes += stdTime * volume;
+        }
+      });
+
+      const grandTotalHours = grandTotalMinutes / 60;
+      const stdHours = monthlyWorkingHours[m] || 147;
+      const fteMain = stdHours > 0 ? grandTotalHours / stdHours : 0;
+      const fteWithAllowance = fteMain * 1.05;
+
+      fteMatrix[hcode][m] = fteWithAllowance;
+      monthTotalFTE[m] += fteWithAllowance;
+    }
+  });
+
+  // รวม FTE ทุกเดือนของทุก รพ. เพื่อหาค่าเฉลี่ย
+  const grandTotalYearFTE = Object.values(monthTotalFTE).reduce((a, b) => a + b, 0);
+  const totalHospCount = hospitals?.length || 0;
+  const avgYearlyFTEPerHosp = totalHospCount > 0 ? grandTotalYearFTE / (12 * totalHospCount) : 0;
+
+  // คำนวณผลรวมกรอบ FTE (fte_lab) ของทุกโรงพยาบาล
+  const totalFteLab = (hospitals || []).reduce((sum, h) => sum + (Number(h.fte_lab) || 0), 0);
+
+  const currY = currentYearAD + 543;
+  const yearsList = [currY - 2, currY - 1, currY, currY + 1];
+
+  return (
+    <div className="container-fluid px-3 py-2 d-flex flex-column" style={{ fontSize: '0.8rem', minHeight: '100vh' }}>
+      <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" />
+      <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+
+      {/* Header & Filter */}
+      <div className="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
+        <h4 className="m-0 fw-bold text-dark fs-5">
+          <i className="fa-solid fa-chart-line text-success me-2"></i>
+          สรุปกรอบอัตรากำลัง FTE รายปี (ทุกโรงพยาบาล)
+        </h4>
+        <div className="d-flex align-items-center gap-2">
+          <form method="GET" className="d-flex align-items-center gap-2">
+            <label className="fw-bold small mb-0">เลือกปี พ.ศ.:</label>
+            <select 
+              name="year" 
+              defaultValue={buddhistYear} 
+              className="form-select form-select-sm"
+              style={{ width: '110px' }}
+            >
+              {yearsList.map(y => (
+                <option key={y} value={y}>{y}</option>
+              ))}
+            </select>
+            <button type="submit" className="btn btn-primary btn-sm fw-bold">กรอง</button>
+          </form>
+          <Link href="/" className="btn btn-outline-secondary btn-sm fw-bold">
+            <i className="fa-solid fa-arrow-left me-1"></i> กลับหน้ารายเดือน
+          </Link>
+        </div>
+      </div>
+
+      {/* Summary Cards (ย้ายขึ้นมาอยู่ข้างบนตารางติดกับส่วน Filter) */}
+      <div className="mb-2">
+        <div className="row g-2">
+          <div className="col-md-3">
+            <div className="card p-2 border-0 shadow-sm border-start border-4 border-primary bg-white">
+              <div className="text-muted small fw-bold">จำนวนโรงพยาบาลทั้งหมด</div>
+              <div className="fs-5 fw-bold text-primary">{totalHospCount} แห่ง</div>
+            </div>
+          </div>
+          <div className="col-md-3">
+            <div className="card p-2 border-0 shadow-sm border-start border-4 border-success bg-white">
+              <div className="text-muted small fw-bold">รวม FTE ทุก รพ. ตลอดทั้งปี</div>
+              <div className="fs-5 fw-bold text-success">{grandTotalYearFTE.toFixed(2)} คน-เดือน</div>
+            </div>
+          </div>
+          <div className="col-md-3">
+            <div className="card p-2 border-0 shadow-sm border-start border-4 border-warning bg-white">
+              <div className="text-muted small fw-bold">เฉลี่ย FTE / โรงพยาบาล / เดือน</div>
+              <div className="fs-5 fw-bold text-warning">{avgYearlyFTEPerHosp.toFixed(2)} คน</div>
+            </div>
+          </div>
+          <div className="col-md-3">
+            <div className="card p-2 border-0 shadow-sm border-start border-4 bg-white" style={{ borderColor: '#8b5cf6' }}>
+              <div className="text-muted small fw-bold">ปีงบประมาณ / พ.ศ.</div>
+              <div className="fs-5 fw-bold" style={{ color: '#8b5cf6' }}>{buddhistYear}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Table with Frozen Left Columns, Sticky Header & Sticky Footer */}
+      <div className="card border-0 shadow-sm flex-grow-1 mb-2">
+        <div className="card-body p-0">
+          <div className="table-scroll-container">
+            <table className="table table-hover table-bordered align-middle mb-0" style={{ fontSize: '0.78rem', whiteSpace: 'nowrap' }}>
+              <thead>
+                <tr>
+                  <th className="sticky-head-1 text-center" style={{ width: '80px' }}>
+                    HCODE
+                  </th>
+                  <th className="sticky-head-2 text-start" style={{ width: '200px' }}>
+                    ชื่อโรงพยาบาล
+                  </th>
+                  <th className="sticky-head-top text-center" style={{ width: '70px' }}>ระดับ</th>
+                  {/* เพิ่มคอลัมน์ กรอบ FTE ต่อจาก ระดับ */}
+                  <th className="sticky-head-top text-center bg-secondary text-white" style={{ width: '90px' }}>
+                    กรอบ FTE
+                  </th>
+                  
+                  {Object.values(THAI_MONTHS).map((mName) => (
+                    <th key={mName} className="sticky-head-top text-center" style={{ width: '75px' }}>
+                      {mName}
+                    </th>
+                  ))}
+                  <th className="sticky-head-top text-center bg-primary text-white" style={{ width: '95px' }}>
+                    เฉลี่ย FTE/ปี
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {hospitals?.map((h) => {
+                  const hcode = String(h.hcode).trim();
+                  let hospYearFTE = 0;
+                  const fteLabVal = h.fte_lab !== null && h.fte_lab !== undefined ? Number(h.fte_lab) : null;
+
+                  return (
+                    <tr key={hcode}>
+                      <td className="sticky-col-1 text-center fw-bold">
+                        {hcode}
+                      </td>
+
+                      <td className="sticky-col-2 text-start fw-bold">
+                        {h.hname}
+                      </td>
+
+                      <td className="text-center">
+                        <span className="badge bg-secondary" style={{ fontSize: '10px' }}>{h.hospital_level}</span>
+                      </td>
+
+                      {/* แสดง กรอบ FTE (fte_lab) ต่อจากระดับ */}
+                      <td className="text-center fw-bold text-dark">
+                        {fteLabVal !== null ? fteLabVal.toFixed(2) : '-'}
+                      </td>
+
+                      {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => {
+                        const val = fteMatrix[hcode]?.[m] || 0;
+                        hospYearFTE += val;
+                        return (
+                          <td key={m} className={`text-end ${val > 0 ? 'fw-bold text-dark' : 'text-muted'}`}>
+                            {val > 0 ? val.toFixed(2) : '-'}
+                          </td>
+                        );
+                      })}
+
+                      <td className="text-end fw-bold text-primary bg-light">
+                        {(hospYearFTE / 12).toFixed(2)}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+
+              <tfoot>
+                <tr className="sticky-foot-row fw-bold text-dark">
+                  <td className="sticky-foot-1 text-center">รวม</td>
+                  <td className="sticky-foot-2 text-start">
+                    โรงพยาบาลทั้งหมด ({totalHospCount} แห่ง)
+                  </td>
+                  <td className="text-center">-</td>
+
+                  {/* รวม กรอบ FTE (fte_lab) */}
+                  <td className="text-center text-primary fw-bold">
+                    {totalFteLab > 0 ? totalFteLab.toFixed(2) : '-'}
+                  </td>
+
+                  {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
+                    <td key={m} className="text-end text-success fw-bold">
+                      {(monthTotalFTE[m] || 0).toFixed(2)}
+                    </td>
+                  ))}
+                  
+                  <td className="text-end text-primary bg-light fw-bold">
+                    {grandTotalYearFTE.toFixed(2)}
+                  </td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

@@ -69,18 +69,46 @@ export default async function YearlyReportPage({ searchParams }: PageProps) {
     .lte('holiday_date', endDateStr);
 
   const holidayList = (holidaysData || []).map(h => h.holiday_date);
+  const holidaySet = new Set(holidayList.map(d => String(d).split('T')[0].trim()));
 
-  // จัดกลุ่มข้อมูล ปริมาณงานตาม [hcode][month][volKey]
+  // จัดกลุ่มข้อมูล ปริมาณงานตาม [hcode][month][volKey] และคำนวณค่าเฉลี่ยเจ้าหน้าที่ปฏิบัติงานจริง (staff_mt) เฉพาะวันทำการ
   const workloadByHospMonth: Record<string, Record<number, Record<string, number>>> = {};
+  const staffStatsByHosp: Record<string, { sum: number; count: number }> = {};
 
   yearlyDailyWorkload.forEach(row => {
     const hcode = String(row.hospital_code).trim();
     
     let month = 0;
     if (row.start_date) {
-      const dateParts = String(row.start_date).split(/[-T]/);
-      if (dateParts.length >= 2) {
+      const dateOnly = String(row.start_date).split('T')[0].trim();
+      const dateParts = dateOnly.split('-');
+      if (dateParts.length >= 3) {
+        const y = parseInt(dateParts[0], 10);
         month = parseInt(dateParts[1], 10);
+        const d = parseInt(dateParts[2], 10);
+
+        // ตรวจสอบว่าเป็นวันทำการ (ไม่ใช่วันเสาร์-อาทิตย์ และไม่ใช่วันหยุดนักขัตฤกษ์)
+        const dateObj = new Date(y, month - 1, d);
+        const dayOfWeek = dateObj.getDay(); // 0 = อาทิตย์, 6 = เสาร์
+        const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+        const isPublicHoliday = holidaySet.has(dateOnly);
+
+        if (!isWeekend && !isPublicHoliday) {
+          const staffVal = Number(row.staff_mt);
+          if (
+            row.staff_mt !== null &&
+            row.staff_mt !== undefined &&
+            row.staff_mt !== '' &&
+            !isNaN(staffVal) &&
+            staffVal > 0
+          ) {
+            if (!staffStatsByHosp[hcode]) {
+              staffStatsByHosp[hcode] = { sum: 0, count: 0 };
+            }
+            staffStatsByHosp[hcode].sum += staffVal;
+            staffStatsByHosp[hcode].count += 1;
+          }
+        }
       }
     }
 
@@ -95,6 +123,14 @@ export default async function YearlyReportPage({ searchParams }: PageProps) {
         }
       });
     }
+  });
+
+  // คำนวณค่าเฉลี่ยเจ้าหน้าที่ปฏิบัติงานจริงรายโรงพยาบาล (ปัดเป็นจำนวนเต็ม)
+  const actualStaffByHosp: Record<string, number | null> = {};
+  (hospitals || []).forEach(h => {
+    const hcode = String(h.hcode).trim();
+    const stat = staffStatsByHosp[hcode];
+    actualStaffByHosp[hcode] = stat && stat.count > 0 ? Math.round(stat.sum / stat.count) : null;
   });
 
   // คำนวณชั่วโมงมาตรฐานประจำแต่ละเดือน (1-12)
@@ -163,8 +199,12 @@ export default async function YearlyReportPage({ searchParams }: PageProps) {
   const totalHospCount = hospitals?.length || 0;
   const avgYearlyFTEPerHosp = totalHospCount > 0 ? grandTotalYearFTE / (12 * totalHospCount) : 0;
 
-  // คำนวณผลรวมกรอบ FTE (fte_lab) ของทุกโรงพยาบาล
+  // คำนวณผลรวมกรอบ FTE (fte_lab) และผลรวมเจ้าหน้าที่ปฏิบัติงานจริงของทุกโรงพยาบาล
   const totalFteLab = (hospitals || []).reduce((sum, h) => sum + (Number(h.fte_lab) || 0), 0);
+  const totalActualStaff = (hospitals || []).reduce((sum, h) => {
+    const hcode = String(h.hcode).trim();
+    return sum + (actualStaffByHosp[hcode] || 0);
+  }, 0);
 
   const currY = currentYearAD + 543;
   const yearsList = [currY - 2, currY - 1, currY, currY + 1];
@@ -201,7 +241,7 @@ export default async function YearlyReportPage({ searchParams }: PageProps) {
         </div>
       </div>
 
-      {/* Summary Cards (ย้ายขึ้นมาอยู่ข้างบนตารางติดกับส่วน Filter) */}
+      {/* Summary Cards */}
       <div className="mb-2">
         <div className="row g-2">
           <div className="col-md-3">
@@ -245,9 +285,12 @@ export default async function YearlyReportPage({ searchParams }: PageProps) {
                     ชื่อโรงพยาบาล
                   </th>
                   <th className="sticky-head-top text-center" style={{ width: '70px' }}>ระดับ</th>
-                  {/* เพิ่มคอลัมน์ กรอบ FTE ต่อจาก ระดับ */}
                   <th className="sticky-head-top text-center bg-secondary text-white" style={{ width: '90px' }}>
                     กรอบ FTE
+                  </th>
+                  {/* เพิ่มคอลัมน์ จำนวนเจ้าหน้าที่ปฏิบัติงานจริง ต่อจาก กรอบ FTE */}
+                  <th className="sticky-head-top text-center bg-info text-dark" style={{ width: '115px' }}>
+                    จนท.ปฏิบัติงานจริง
                   </th>
                   
                   {Object.values(THAI_MONTHS).map((mName) => (
@@ -265,6 +308,7 @@ export default async function YearlyReportPage({ searchParams }: PageProps) {
                   const hcode = String(h.hcode).trim();
                   let hospYearFTE = 0;
                   const fteLabVal = h.fte_lab !== null && h.fte_lab !== undefined ? Number(h.fte_lab) : null;
+                  const actualStaffVal = actualStaffByHosp[hcode];
 
                   return (
                     <tr key={hcode}>
@@ -280,9 +324,14 @@ export default async function YearlyReportPage({ searchParams }: PageProps) {
                         <span className="badge bg-secondary" style={{ fontSize: '10px' }}>{h.hospital_level}</span>
                       </td>
 
-                      {/* แสดง กรอบ FTE (fte_lab) ต่อจากระดับ */}
+                      {/* กรอบ FTE (fte_lab) */}
                       <td className="text-center fw-bold text-dark">
                         {fteLabVal !== null ? fteLabVal.toFixed(2) : '-'}
+                      </td>
+
+                      {/* จำนวนเจ้าหน้าที่ปฏิบัติงานจริง (ค่าเฉลี่ย staff_mt เฉพาะวันทำการ ปัดเป็นจำนวนเต็ม) */}
+                      <td className="text-center fw-bold text-dark">
+                        {actualStaffVal !== null ? actualStaffVal : '-'}
                       </td>
 
                       {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => {
@@ -314,6 +363,11 @@ export default async function YearlyReportPage({ searchParams }: PageProps) {
                   {/* รวม กรอบ FTE (fte_lab) */}
                   <td className="text-center text-primary fw-bold">
                     {totalFteLab > 0 ? totalFteLab.toFixed(2) : '-'}
+                  </td>
+
+                  {/* รวม จนท.ปฏิบัติงานจริง */}
+                  <td className="text-center text-primary fw-bold">
+                    {totalActualStaff > 0 ? totalActualStaff : '-'}
                   </td>
 
                   {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
